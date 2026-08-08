@@ -1,0 +1,35 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Logs
+logs/*
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# TensorFlow / model artifacts
+models/
+artifacts/*
+experiments/*
+runs/
+/yolov8n.pt
+
+# Datasets -- large binary data, not source; regenerate via tools/build_dataset.py
+# and tools/build_leaf_detection_dataset.py (see their docstrings for sources).
+datasets/raw/
+datasets/processed/
+datasets/plantvillage_tomato/
+datasets/tomato_leaf_detection/images/
+datasets/tomato_leaf_detection/labels/
+
+# OS files
+.DS_Store

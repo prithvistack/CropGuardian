@@ -1,0 +1,19 @@
+project_name: CropGuardianAI
+project_root: .
+seed: 42
+log_level: INFO
+
+paths:
+  datasets_root: datasets
+  raw_data_dir: datasets/raw
+  processed_data_dir: datasets/processed
+  splits_dir: datasets/splits
+  manifests_dir: datasets/manifests
+  models_dir: models
+  checkpoints_dir: models/checkpoints
+  exports_dir: models/exports
+  logs_dir: logs
+  artifacts_dir: artifacts
+  experiments_dir: experiments
+  docs_dir: docs
+  tests_dir: tests

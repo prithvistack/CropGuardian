@@ -1,0 +1,1 @@
+"""CropGuardian AI package foundation."""

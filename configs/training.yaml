@@ -1,0 +1,141 @@
+training:
+  seed: 42
+  batch_size: 32
+  buffer_size: 1000
+  # Only used for datasets with layout: flat (see configs/datasets.yaml).
+  # Datasets with layout: predefined_split use their own val_ratio instead
+  # (only if they don't ship a val_dir; ignored entirely when they do).
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  # Loss function, selectable without code changes.
+  #   type: crossentropy (default) -- plain sparse categorical cross-entropy,
+  #         unchanged from before this option existed.
+  #   type: focal -- multiclass focal loss (Lin et al., 2017). gamma focuses
+  #         training on hard/misclassified examples. alpha controls
+  #         per-class weighting:
+  #           auto         -> reuse the pipeline's automatically computed
+  #                            class weights as alpha, and skip passing
+  #                            class_weight to fit() (already inside the loss)
+  #           none         -> no per-class alpha term; class_weight is still
+  #                            applied in fit()
+  #           <number>     -> a single scalar alpha shared by all classes
+  #                            (the original focal-loss constant, not an
+  #                            imbalance correction); class_weight is still
+  #                            applied in fit()
+  #           [<number>,...] -> explicit per-class alpha, one value per
+  #                            class in dataset order; class_weight is
+  #                            skipped in fit(), same reasoning as 'auto'
+  loss:
+    type: focal
+    # Reduced from 2.0 after the first cropguardian_v1 run showed the
+    # smallest classes (Bacterial_Spot, Leaf_Mold, Yellow_Leaf_Curl_Virus --
+    # also the classes with the highest auto-computed alpha, up to ~5.8x)
+    # collapsing in precision (e.g. Bacterial_Spot fired 37 times for only
+    # 15 true instances). gamma's hard-example focusing compounds with a
+    # high alpha on classes with very few examples, amplifying noisy signal
+    # rather than a real pattern. 1.5 keeps focal loss's hard-example
+    # benefit (this is a global setting -- see note on Stage 1 below) while
+    # softening that compounding effect. Exploratory: lower-confidence than
+    # the unfreeze_layers change, worth comparing against 2.0 on the next run.
+    gamma: 1.5
+    alpha: auto
+
+model:
+  input_shape:
+    - 224
+    - 224
+    - 3
+  dropout_rate: 0.3
+
+# Selects which stage/dataset to train. Must match a key under `datasets`
+# (configs/datasets.yaml) and `stages` below. Switching datasets requires no
+# source code changes.
+dataset:
+  name: cropguardian_direct
+
+stages:
+  # Stage 1: ImageNet -> PlantVillage. Backbone starts from ImageNet weights.
+  plantvillage:
+    checkpoint_prefix: plantvillage
+    source_model: imagenet
+    epochs: 5
+    fine_tune_epochs: 3
+    head_learning_rate: 0.001
+    fine_tune_learning_rate: 0.00001
+    unfreeze_layers: 20
+
+  # Stage 2: PlantVillage model -> Tomato-Village Variant-a fine-tuning.
+  # Backbone is loaded from the trained PlantVillage checkpoint (never
+  # reinitialized from ImageNet); the classifier head is discarded and
+  # rebuilt fresh, sized to this stage's expected_classes. Learning rates
+  # are lower than stage 1 since we're refining an already-trained
+  # representation rather than learning from scratch.
+  tomato_village:
+    checkpoint_prefix: tomato_village
+    source_model: plantvillage
+    epochs: 5
+    fine_tune_epochs: 5
+    head_learning_rate: 0.0001
+    fine_tune_learning_rate: 0.000005
+    unfreeze_layers: 40
+
+  # Stage 2 (current) — PlantVillage model -> CropGuardian-Dataset-v1
+  # fine-tuning. Backbone is loaded from the trained PlantVillage checkpoint
+  # (never reinitialized from ImageNet); the classifier head is discarded
+  # and rebuilt fresh, sized to this stage's expected_classes (7). Same
+  # verified hyperparameters as the tomato_village stage -- not
+  # dataset-size-dependent, and this dataset was built by the same
+  # transfer-learning-from-PlantVillage design.
+  cropguardian_v1:
+    checkpoint_prefix: cropguardian_v1
+    source_model: plantvillage
+    epochs: 5
+    fine_tune_epochs: 5
+    head_learning_rate: 0.0001
+    fine_tune_learning_rate: 0.000005
+    # Reduced from 40 (the tomato_village stage's value) after the first run
+    # showed fine-tuning overfitting from its very first epoch: 1,873 train
+    # images at unfreeze_layers=40 is ~2.06M trainable params, a much worse
+    # images-per-trainable-layer ratio than tomato_village had (1,873/40≈47
+    # vs. tomato_village's 3,162/40≈79). 20 matches Stage 1's own value and
+    # roughly doubles that ratio (1,873/20≈94), reducing capacity to overfit
+    # while keeping enough unfrozen depth to adapt to the lab->field domain
+    # shift (see reports/training_optimization_report for the full analysis).
+    unfreeze_layers: 20
+
+  # Research-comparison experiment: ImageNet -> CropGuardian-Dataset-v1
+  # directly, skipping PlantVillage. source_model: imagenet means
+  # _resolve_base_model returns None and build_model initializes
+  # EfficientNetB0 from ImageNet weights only -- the exact same code path
+  # the plantvillage stage itself uses, so no plantvillage_final.keras or
+  # any other checkpoint is ever loaded for this stage. Every other value
+  # is copied verbatim from cropguardian_v1's (current, optimized) stage
+  # config. Deliberately NOT tuned independently: changing anything besides
+  # source_model would introduce a second variable and confound the
+  # ImageNet-vs-PlantVillage comparison this experiment exists to answer.
+  cropguardian_direct:
+    checkpoint_prefix: cropguardian_direct
+    source_model: imagenet
+    epochs: 5
+    fine_tune_epochs: 5
+    head_learning_rate: 0.0001
+    fine_tune_learning_rate: 0.000005
+    unfreeze_layers: 20
+
+  # Research-comparison experiment: does backbone fine-tuning help at all?
+  # ImageNet -> frozen EfficientNetB0 -> classification head only, same as
+  # cropguardian_direct's head-training phase, but with fine_tune_epochs: 0
+  # so TrainingPipeline.run() skips the fine-tuning phase entirely (see the
+  # `if fine_tune_epochs > 0` branch in pipeline.py) -- the backbone is never
+  # unfrozen, there is no second .fit() call. head_learning_rate is copied
+  # verbatim from cropguardian_direct/cropguardian_v1; fine_tune_learning_rate
+  # and unfreeze_layers are omitted rather than set to a placeholder, since
+  # they're genuinely inapplicable here (the code path that would read them
+  # never executes for this stage).
+  cropguardian_headonly:
+    checkpoint_prefix: cropguardian_headonly
+    source_model: imagenet
+    epochs: 5
+    fine_tune_epochs: 0
+    head_learning_rate: 0.0001

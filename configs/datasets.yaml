@@ -1,0 +1,104 @@
+datasets:
+  # Stage 1 — lab-photographed, single-crop leaf images. One folder per class.
+  plantvillage:
+    root: datasets/raw/plant_village_zip/PlantVillage
+    layout: flat
+    augmentation_strength: light
+    expected_classes:
+      - Tomato_healthy
+      - Tomato_Bacterial_spot
+      - Tomato_Early_blight
+      - Tomato_Late_blight
+      - Tomato_Leaf_Mold
+      - Tomato_Septoria_leaf_spot
+      - Tomato_Spider_mites_Two_spotted_spider_mite
+      - Tomato__Target_Spot
+      - Tomato__Tomato_mosaic_virus
+      - Tomato__Tomato_YellowLeaf__Curl_Virus
+
+  # Stage 2 — real-world, in-the-wild photos (Tomato-Village Variant-a).
+  # Ships with a native train/val/test split, one folder per class in each.
+  # val_dir is set, so the pipeline uses it directly instead of carving a
+  # validation set out of train_dir.
+  tomato_village:
+    root: datasets/raw/Tomato-Village/Variant-a(Multiclass Classification)
+    layout: predefined_split
+    train_dir: train
+    val_dir: val
+    test_dir: test
+    augmentation_strength: strong
+    expected_classes:
+      - Early_blight
+      - Healthy
+      - Late_blight
+      - Leaf Miner
+      - Magnesium Deficiency
+      - Nitrogen Deficiency
+      - Pottassium Deficiency
+      - Spotted Wilt Virus
+
+  # Stage 2 (current) — curated, transfer-learning-optimized real-world set
+  # (CropGuardian-Dataset-v1). Merged from PlantDoc + Tomato-Village + TOM2024,
+  # restricted to the 7 classes with a reliable PlantVillage counterpart (see
+  # configs/dataset_build/cropguardian_v1.yaml for the full mapping/exclusion
+  # reasoning). Ships a native train/val/test split; val_dir is set, so the
+  # pipeline uses it directly instead of carving a validation set out of
+  # train_dir.
+  cropguardian_v1:
+    root: datasets/processed/CropGuardian-Dataset-v1
+    layout: predefined_split
+    train_dir: train
+    val_dir: val
+    test_dir: test
+    augmentation_strength: strong
+    expected_classes:
+      - Bacterial_Spot
+      - Early_Blight
+      - Healthy
+      - Late_Blight
+      - Leaf_Mold
+      - Septoria_Leaf_Spot
+      - Yellow_Leaf_Curl_Virus
+
+  # Research-comparison experiment (ImageNet -> CropGuardian directly, no
+  # PlantVillage stage). Points at the EXACT SAME root/split/classes as
+  # `cropguardian_v1` above -- not a new dataset, not a new split, not a
+  # rebuild. This entry exists only because the pipeline looks up a stage's
+  # dataset config by the stage's own name (see TrainingPipeline.run()), so
+  # a same-name-as-its-stage entry is required for `cropguardian_direct` to
+  # reference this data independently of the cropguardian_v1 stage. If
+  # either block is edited, keep the two in sync manually.
+  cropguardian_direct:
+    root: datasets/processed/CropGuardian-Dataset-v1
+    layout: predefined_split
+    train_dir: train
+    val_dir: val
+    test_dir: test
+    augmentation_strength: strong
+    expected_classes:
+      - Bacterial_Spot
+      - Early_Blight
+      - Healthy
+      - Late_Blight
+      - Leaf_Mold
+      - Septoria_Leaf_Spot
+      - Yellow_Leaf_Curl_Virus
+
+  # Research-comparison experiment: frozen-backbone-only, no fine-tuning.
+  # Same identical-data caveat as cropguardian_direct above -- points at the
+  # same root/split/classes, required only by the stage-name lookup pattern.
+  cropguardian_headonly:
+    root: datasets/processed/CropGuardian-Dataset-v1
+    layout: predefined_split
+    train_dir: train
+    val_dir: val
+    test_dir: test
+    augmentation_strength: strong
+    expected_classes:
+      - Bacterial_Spot
+      - Early_Blight
+      - Healthy
+      - Late_Blight
+      - Leaf_Mold
+      - Septoria_Leaf_Spot
+      - Yellow_Leaf_Curl_Virus

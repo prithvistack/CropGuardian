@@ -1,0 +1,7 @@
+path: /Users/prithvirajkhedekar/Documents/Projects/EDI_Project/CropGuardianAI/datasets/tomato_leaf_detection
+train: images/train
+val: images/val
+test: images/test
+nc: 1
+names:
+- tomato_leaf

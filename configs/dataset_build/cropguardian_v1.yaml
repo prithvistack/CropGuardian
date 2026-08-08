@@ -1,0 +1,129 @@
+# Build configuration for CropGuardian-Dataset-v1 (transfer-learning-optimized).
+#
+# This file is the single source of truth for how raw source datasets map
+# into the unified CropGuardian taxonomy. The builder (tools/dataset_builder)
+# has no dataset-specific logic of its own -- every mapping, exclusion, and
+# path lives here. Adding a future dataset means adding a new `sources`
+# entry, not touching any Python code.
+#
+# Every class found under a source's root MUST appear in either that
+# source's `class_map` (included, mapped to a unified class) or
+# `excluded_classes` (excluded, with a documented reason). Any class found
+# on disk that appears in neither is treated as a configuration error, not
+# silently dropped -- this forces every mapping/exclusion decision for every
+# class to be explicit and auditable.
+#
+# ---------------------------------------------------------------------------
+# SELECTION CRITERION (this version): a class is only included if it has a
+# reliable counterpart in PlantVillage's 10 tomato classes (the Stage-1
+# pretraining set) AND at least 50 real-world images with an unambiguous,
+# biologically-correct label. PlantVillage itself is never the bottleneck
+# (every PlantVillage tomato class has 952-3209 images); the real-world side
+# is always the deciding factor. This is NOT PlantVillage's data being
+# merged in -- PlantVillage stays Stage 1's own separate dataset
+# (configs/datasets.yaml's `plantvillage` entry, untouched); it is only used
+# here to decide which real-world classes qualify for Stage 2.
+#
+# PlantVillage class -> real-world representation -> decision:
+#   Tomato_healthy (1591)                              -> Healthy: PlantDoc 54 + Tomato-Village 216 + TOM2024 782 = 1052            -> INCLUDE
+#   Tomato_Bacterial_spot (2127)                        -> Bacterial_Spot: PlantDoc 98                            = 98              -> INCLUDE (single-source, above threshold)
+#   Tomato_Early_blight (1000)                          -> Early_Blight: PlantDoc 74 + Tomato-Village 496 + TOM2024(alternaria_d) 322 = 892 -> INCLUDE
+#   Tomato_Late_blight (1909)                           -> Late_Blight: PlantDoc 101 + Tomato-Village 904 + TOM2024 74 = 1079        -> INCLUDE
+#   Tomato_Leaf_Mold (952)                              -> Leaf_Mold: PlantDoc 85                                 = 85              -> INCLUDE (single-source, above threshold)
+#   Tomato_Septoria_leaf_spot (1771)                    -> Septoria_Leaf_Spot: PlantDoc 137                       = 137             -> INCLUDE (single-source, above threshold)
+#   Tomato_Spider_mites_Two_spotted_spider_mite (1676)  -> only candidate is TOM2024's Mite_d (390), a generic,   = 390 (ambiguous) -> EXCLUDE (species-level identity unconfirmed)
+#                                                           unspecified mite-damage label, not confirmed as this specific species
+#   Tomato__Target_Spot (1404)                          -> no candidate in any real-world source                 = 0               -> EXCLUDE (no real-world counterpart at all)
+#   Tomato__Tomato_mosaic_virus (373)                   -> Mosaic_Virus: PlantDoc 44                              = 44              -> EXCLUDE (below the 50-image minimum)
+#   Tomato__Tomato_YellowLeaf__Curl_Virus (3209)        -> Yellow_Leaf_Curl_Virus: PlantDoc 69                    = 69              -> INCLUDE (single-source, above threshold)
+#
+# Real-world classes with NO PlantVillage counterpart at all (Leaf_Miner,
+# Magnesium/Nitrogen/Potassium_Deficiency, Spotted_Wilt_Virus, Fusarium_Wilt,
+# Sunburn, Virosis_Unspecified) are excluded regardless of their own image
+# count -- there is nothing for a PlantVillage-pretrained backbone to
+# transfer from for a condition PlantVillage never saw.
+#
+# Result: 7 approved classes (down from 17 in the previous, maximize-classes
+# build). See reports/merge_report.md after a build for the generated,
+# authoritative version of this table.
+# ---------------------------------------------------------------------------
+
+seed: 42
+resolution_min_px: 150
+output_dir: datasets/processed/CropGuardian-Dataset-v1
+split_ratios:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+near_duplicate_hamming_threshold: 5   # 64-bit difference-hash; <=5 bits differing == near-duplicate
+
+sources:
+  # ------------------------------------------------------------------
+  # PlantDoc (Tomato subset) -- web-scraped, train/test folders.
+  # Both splits are scanned generically (parent directory name = class);
+  # the corrupted PlantDoc test split (documented in the Phase 1 report --
+  # every file in it is an HTML error page saved as .jpg) is not special
+  # -cased here, it is removed automatically by the quality-control step
+  # like any other unreadable file. Splits are not preserved -- this build
+  # creates its own train/val/test from scratch.
+  # ------------------------------------------------------------------
+  plantdoc:
+    root: "datasets/raw/Tomato-PlantDoc-Dataset"
+    class_map:
+      "Tomato leaf": Healthy
+      "Tomato Early blight leaf": Early_Blight
+      "Tomato leaf late blight": Late_Blight
+      "Tomato Septoria leaf spot": Septoria_Leaf_Spot
+      "Tomato leaf bacterial spot": Bacterial_Spot
+      "Tomato mold leaf": Leaf_Mold
+      "Tomato leaf yellow virus": Yellow_Leaf_Curl_Virus
+    excluded_classes:
+      "Tomato leaf mosaic virus": "Only 44 real-world images (PlantDoc is the sole source for this class); below the 50-image minimum for reliable fine-tuning/evaluation. PlantVillage's Tomato_mosaic_virus (373 images) has no other qualifying real-world counterpart, so the class is excluded from CropGuardian-Dataset-v1 entirely."
+
+  # ------------------------------------------------------------------
+  # Tomato-Village Variant-a -- real-world field photos, native
+  # train/val/test split (not reused -- see above).
+  # ------------------------------------------------------------------
+  tomato_village:
+    root: "datasets/raw/Tomato-Village/Variant-a(Multiclass Classification)"
+    class_map:
+      Healthy: Healthy
+      Early_blight: Early_Blight
+      Late_blight: Late_Blight
+    excluded_classes:
+      "Spotted Wilt Virus": "No PlantVillage counterpart (PlantVillage's virus classes are Tomato_mosaic_virus and Tomato_YellowLeaf_Curl_Virus, neither of which is Tomato Spotted Wilt Virus). A PlantVillage-pretrained backbone has never seen this condition; transfer learning provides no grounded benefit for it."
+      "Magnesium Deficiency": "No PlantVillage counterpart -- PlantVillage contains no nutrient-deficiency classes at all. Excluded regardless of its own image count (936 images) per the PlantVillage-alignment criterion."
+      "Nitrogen Deficiency": "No PlantVillage counterpart -- PlantVillage contains no nutrient-deficiency classes at all."
+      "Pottassium Deficiency": "No PlantVillage counterpart -- PlantVillage contains no nutrient-deficiency classes at all."
+      "Leaf Miner": "No PlantVillage counterpart -- PlantVillage contains no insect-pest classes (its closest class, Spider_mites, is itself excluded below for a different reason). Excluded regardless of its own image count (1024 images)."
+
+  # ------------------------------------------------------------------
+  # TOM2024 CATEGORY A (CATA-English) -- app-uploaded field photos.
+  # CATA-English also contains maize_* and onion_* folders (out of scope
+  # entirely -- a different crop, not merely a different class), so each
+  # tomato-specific group is scanned as its own source root rather than
+  # scanning CATA-English itself, which would pull in maize/onion classes.
+  # ------------------------------------------------------------------
+  tom2024_tomato_diseases:
+    root: "datasets/raw/TOM2024/CATEGORY A/CATA-English/tomato_diseases"
+    class_map:
+      healthy_leaf: Healthy
+      alternaria_d: Early_Blight            # Alternaria solani is the causal agent of early blight
+      tomato_late_blight_d: Late_Blight
+    excluded_classes:
+      exces_nitrogen_d: "No PlantVillage counterpart -- PlantVillage contains no nutrient-deficiency classes at all."
+      Mite_d: "Generic, unspecified mite-damage label. PlantVillage's only pest class is specifically Tomato_Spider_mites_Two_spotted_spider_mite -- a named species -- and TOM2024's label cannot be confirmed to be that same species without expert visual review. Merging a generic label into a species-specific PlantVillage class would be a biologically unsafe mapping, so PlantVillage's Spider_mites class is excluded from CropGuardian-Dataset-v1 entirely rather than paired with an unconfirmed match."
+      fusarium_d: "No PlantVillage counterpart -- PlantVillage contains no Fusarium wilt class."
+      sunburn_d: "No PlantVillage counterpart -- PlantVillage contains no abiotic/environmental-damage classes."
+      virosis_d: "Generic 'viral disease, unspecified' label -- cannot be assigned to either of PlantVillage's two specific named viruses (mosaic virus, yellow leaf curl virus) without mislabeling. Excluded regardless of its own image count (1542 images, the single largest class in TOM2024)."
+      healthy_fruit: "Fruit-domain image (not leaf); out of scope for the current leaf-based classifier."
+      Blossom_end_rot_d: "Fruit-domain physiological disorder; out of scope for the current leaf-based classifier."
+      alternaria_mite_d: "Compound label representing two co-occurring conditions at once; cannot be assigned a single unified class without mislabeling one condition."
+      Bacterial_floundering_d: "Non-standard plant-pathology terminology; cannot be confirmed equivalent to Bacterial_Spot or any other known class without expert visual review. Excluded rather than guessed to avoid merging biologically different conditions."
+
+  tom2024_tomato_pests:
+    root: "datasets/raw/TOM2024/CATEGORY A/CATA-English/tomato_pests"
+    class_map: {}
+    excluded_classes:
+      tuta_absoluta_p: "No PlantVillage counterpart -- PlantVillage contains no insect-pest classes. (This class documented the same pest as Tomato-Village's 'Leaf Miner', which is excluded for the same reason.)"
+      helicoverpa_armigera_p: "Fruitworm -- damage signal is fruit-domain, not leaf-domain; out of scope for the current classifier."
