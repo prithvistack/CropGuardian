@@ -1,0 +1,97 @@
+{
+  "_meta": {
+    "description": "Per-pathogen optimal-condition and economic parameters for pipeline/cadri_engine.py's Er(d)/CADRI/EIL calculations.",
+    "units": {
+      "mu_temp / sigma_temp": "degrees Celsius (DHT22)",
+      "mu_humidity / sigma_humidity": "percent relative humidity (DHT22)",
+      "mu_soil / sigma_soil": "percent soil moisture (capacitive sensor)",
+      "mu_air / sigma_air": "ppm (MQ135)",
+      "w_*": "sensor weights per disease, must sum to 1.0",
+      "D": "yield-loss fraction per unit infection severity (relative scale across diseases, not independently measured)",
+      "K": "treatment efficacy, 0 (no cure) to 1 (fully controllable)"
+    },
+    "disclaimer": "Values are literature-informed estimates for a decision-support prototype (typical optimal ranges from tomato plant-pathology sources), not calibrated agronomic constants from field trials on this specific farm/region. Keys are the exact class names emitted by src/cropguardian/inference/predictor.py:CLASS_NAMES."
+  },
+  "diseases": {
+    "Tomato_Bacterial_spot": {
+      "mu_temp": 28, "sigma_temp": 4,
+      "mu_humidity": 85, "sigma_humidity": 10,
+      "mu_soil": 65, "sigma_soil": 15,
+      "mu_air": 550, "sigma_air": 100,
+      "w_temp": 0.30, "w_humidity": 0.40, "w_soil": 0.15, "w_air": 0.15,
+      "D": 0.65, "K": 0.55
+    },
+    "Tomato_Early_blight": {
+      "mu_temp": 26, "sigma_temp": 4,
+      "mu_humidity": 85, "sigma_humidity": 12,
+      "mu_soil": 55, "sigma_soil": 15,
+      "mu_air": 520, "sigma_air": 100,
+      "w_temp": 0.35, "w_humidity": 0.35, "w_soil": 0.20, "w_air": 0.10,
+      "D": 0.55, "K": 0.75
+    },
+    "Tomato_Late_blight": {
+      "mu_temp": 18, "sigma_temp": 4,
+      "mu_humidity": 92, "sigma_humidity": 6,
+      "mu_soil": 70, "sigma_soil": 12,
+      "mu_air": 580, "sigma_air": 100,
+      "w_temp": 0.30, "w_humidity": 0.45, "w_soil": 0.15, "w_air": 0.10,
+      "D": 0.95, "K": 0.70
+    },
+    "Tomato_Leaf_Mold": {
+      "mu_temp": 22, "sigma_temp": 4,
+      "mu_humidity": 88, "sigma_humidity": 8,
+      "mu_soil": 60, "sigma_soil": 15,
+      "mu_air": 560, "sigma_air": 100,
+      "w_temp": 0.25, "w_humidity": 0.45, "w_soil": 0.15, "w_air": 0.15,
+      "D": 0.30, "K": 0.80
+    },
+    "Tomato_Septoria_leaf_spot": {
+      "mu_temp": 22, "sigma_temp": 4,
+      "mu_humidity": 86, "sigma_humidity": 8,
+      "mu_soil": 62, "sigma_soil": 15,
+      "mu_air": 540, "sigma_air": 100,
+      "w_temp": 0.30, "w_humidity": 0.40, "w_soil": 0.20, "w_air": 0.10,
+      "D": 0.45, "K": 0.75
+    },
+    "Tomato_Spider_mites_Two_spotted_spider_mite": {
+      "mu_temp": 30, "sigma_temp": 4,
+      "mu_humidity": 45, "sigma_humidity": 15,
+      "mu_soil": 35, "sigma_soil": 15,
+      "mu_air": 450, "sigma_air": 80,
+      "w_temp": 0.40, "w_humidity": 0.35, "w_soil": 0.15, "w_air": 0.10,
+      "D": 0.40, "K": 0.70
+    },
+    "Tomato__Target_Spot": {
+      "mu_temp": 28, "sigma_temp": 4,
+      "mu_humidity": 88, "sigma_humidity": 8,
+      "mu_soil": 60, "sigma_soil": 15,
+      "mu_air": 540, "sigma_air": 100,
+      "w_temp": 0.35, "w_humidity": 0.35, "w_soil": 0.15, "w_air": 0.15,
+      "D": 0.50, "K": 0.70
+    },
+    "Tomato__Tomato_YellowLeaf__Curl_Virus": {
+      "mu_temp": 30, "sigma_temp": 4,
+      "mu_humidity": 55, "sigma_humidity": 15,
+      "mu_soil": 50, "sigma_soil": 15,
+      "mu_air": 460, "sigma_air": 80,
+      "w_temp": 0.45, "w_humidity": 0.25, "w_soil": 0.15, "w_air": 0.15,
+      "D": 0.85, "K": 0.15
+    },
+    "Tomato__Tomato_mosaic_virus": {
+      "mu_temp": 25, "sigma_temp": 6,
+      "mu_humidity": 70, "sigma_humidity": 20,
+      "mu_soil": 60, "sigma_soil": 20,
+      "mu_air": 500, "sigma_air": 120,
+      "w_temp": 0.25, "w_humidity": 0.25, "w_soil": 0.25, "w_air": 0.25,
+      "D": 0.55, "K": 0.10
+    },
+    "Tomato_healthy": {
+      "mu_temp": 23, "sigma_temp": 5,
+      "mu_humidity": 70, "sigma_humidity": 15,
+      "mu_soil": 60, "sigma_soil": 15,
+      "mu_air": 450, "sigma_air": 100,
+      "w_temp": 0.25, "w_humidity": 0.25, "w_soil": 0.25, "w_air": 0.25,
+      "D": 0.0, "K": 0.0
+    }
+  }
+}
