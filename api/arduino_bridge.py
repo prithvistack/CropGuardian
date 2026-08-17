@@ -28,6 +28,7 @@ from typing import Literal
 
 import serial
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 from PIL import Image
 from pydantic import BaseModel
 from serial.tools import list_ports
@@ -44,19 +45,22 @@ RECONNECT_INTERVAL_SECONDS = 2.0
 
 Command = Literal["SPRAY_OFF", "SPRAY_LIGHT", "SPRAY_MODERATE", "SPRAY_FULL", "FAN_ON", "FAN_OFF"]
 
-# Which spray command a CADRI decision should trigger. manual_inspection maps
-# to SPRAY_OFF too -- an ambiguous prediction is never a reason to start
-# spraying, only ever to stop and flag for a human.
+# Which spray command a CADRI decision should trigger. manual_inspection and
+# sensors_unavailable map to SPRAY_OFF too -- an ambiguous prediction or a
+# missing environmental reading is never a reason to start spraying, only
+# ever to stop and flag for a human. sensors_unavailable is never actually
+# looked up here though -- /analyze skips send_command entirely in that case.
 DECISION_TO_COMMAND: dict[str, Command] = {
     "full_spray": "SPRAY_FULL",
     "moderate_spray": "SPRAY_MODERATE",
     "light_spray": "SPRAY_LIGHT",
     "no_spray": "SPRAY_OFF",
     "manual_inspection": "SPRAY_OFF",
+    "sensors_unavailable": "SPRAY_OFF",
 }
 # Most urgent first, for picking one command when a photo contains several
 # leaves with different decisions.
-DECISION_PRIORITY = ["full_spray", "moderate_spray", "light_spray", "no_spray", "manual_inspection"]
+DECISION_PRIORITY = ["full_spray", "moderate_spray", "light_spray", "no_spray", "manual_inspection", "sensors_unavailable"]
 
 SENSOR_FIELDS = ("temperature", "humidity", "soil_moisture", "gas_level", "fan_state", "pump_state")
 
@@ -211,6 +215,21 @@ class ArduinoBridge:
         state["cooldown_seconds_remaining"] = round(remaining, 1)
         return state
 
+    def has_sensor_data(self) -> bool:
+        """Whether the four environmental readings CADRI needs are usable --
+        false if the Arduino isn't connected, or its last report never got
+        past all-zero/uninitialized values."""
+        if not self.connected:
+            return False
+        with self._state_lock:
+            readings = (
+                self._state["temperature"],
+                self._state["humidity"],
+                self._state["soil_moisture"],
+                self._state["gas_level"],
+            )
+        return not all(v is None or v == 0 for v in readings)
+
     def cooldown_remaining_seconds(self) -> float:
         with self._state_lock:
             last_cmd = self._state["last_spray_command"]
@@ -278,8 +297,7 @@ async def analyze(image: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
 
     sensors = bridge.latest()
-    if any(sensors[field] is None for field in ("temperature", "humidity", "soil_moisture", "gas_level")):
-        raise HTTPException(status_code=503, detail="No sensor readings available yet")
+    sensors_available = bridge.has_sensor_data()
 
     if sensors["pump_state"]:
         return {"skipped": True, "reason": "pump_already_running", "sensor_readings": sensors}
@@ -292,44 +310,56 @@ async def analyze(image: UploadFile = File(...)) -> dict:
             "sensor_readings": sensors,
         }
 
-    leaf_results = _get_pipeline().run(pil_image)
-    if not leaf_results:
-        return {"leaves": [], "primary_decision": None, "command_sent": None, "sensors": sensors}
-
-    leaves = []
-    for leaf in leaf_results:
-        top_probs = sorted(leaf.probabilities.values(), reverse=True)
-        top2_confidence = top_probs[1] if len(top_probs) > 1 else 0.0
-        decision = compute_decision(
-            disease_class=leaf.class_name,
-            confidence=leaf.class_confidence,
-            top2_confidence=top2_confidence,
-            Sv=leaf.severity_score,
-            temperature=sensors["temperature"],
-            humidity=sensors["humidity"],
-            soil_moisture=sensors["soil_moisture"],
-            air_quality=sensors["gas_level"],
-        )
-        leaves.append(
-            {
-                "box_xyxy": leaf.box_xyxy,
-                "detection_confidence": round(leaf.detection_confidence, 4),
-                **decision,
-            }
-        )
-
-    primary_decision = min(leaves, key=lambda leaf: DECISION_PRIORITY.index(leaf["decision"]))
-    command = DECISION_TO_COMMAND[primary_decision["decision"]]
+    # Everything from here on is the actual detect -> classify -> Grad-CAM ->
+    # CADRI pipeline. Any unhandled exception in it (a bad model input, a
+    # transient inference failure, etc.) is real backend breakage rather than
+    # a client error, but it shouldn't take the whole endpoint down with a
+    # raw 500 traceback either -- log it and hand back a structured error.
     try:
-        bridge.send_command(command)
-        command_sent = command
-        bridge.record_spray(command)
-    except ConnectionError:
-        command_sent = None
+        leaf_results = _get_pipeline().run(pil_image)
 
-    return {
-        "leaves": leaves,
-        "primary_decision": primary_decision,
-        "command_sent": command_sent,
-        "sensors": sensors,
-    }
+        if not leaf_results:
+            return {"leaves": [], "primary_decision": None, "command_sent": None, "sensors": sensors}
+
+        leaves = []
+        for leaf in leaf_results:
+            top_probs = sorted(leaf.probabilities.values(), reverse=True)
+            top2_confidence = top_probs[1] if len(top_probs) > 1 else 0.0
+            decision = compute_decision(
+                disease_class=leaf.class_name,
+                confidence=leaf.class_confidence,
+                top2_confidence=top2_confidence,
+                Sv=leaf.severity_score,
+                temperature=sensors["temperature"] if sensors_available else None,
+                humidity=sensors["humidity"] if sensors_available else None,
+                soil_moisture=sensors["soil_moisture"] if sensors_available else None,
+                air_quality=sensors["gas_level"] if sensors_available else None,
+            )
+            leaves.append(
+                {
+                    "box_xyxy": leaf.box_xyxy,
+                    "detection_confidence": round(leaf.detection_confidence, 4),
+                    **decision,
+                }
+            )
+
+        primary_decision = min(leaves, key=lambda leaf: DECISION_PRIORITY.index(leaf["decision"]))
+        command_sent = None
+        if primary_decision["decision"] != "sensors_unavailable":
+            command = DECISION_TO_COMMAND[primary_decision["decision"]]
+            try:
+                bridge.send_command(command)
+                command_sent = command
+                bridge.record_spray(command)
+            except ConnectionError:
+                command_sent = None
+
+        return {
+            "leaves": leaves,
+            "primary_decision": primary_decision,
+            "command_sent": command_sent,
+            "sensors": sensors,
+        }
+    except Exception as exc:
+        logger.exception("Unhandled error in /analyze pipeline")
+        return JSONResponse(status_code=500, content={"error": True, "message": str(exc)})

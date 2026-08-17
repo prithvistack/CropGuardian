@@ -171,16 +171,23 @@ def compute_decision(
     confidence: float,
     top2_confidence: float,
     Sv: float,
-    temperature: float,
-    humidity: float,
-    soil_moisture: float,
-    air_quality: float,
+    temperature: float | None = None,
+    humidity: float | None = None,
+    soil_moisture: float | None = None,
+    air_quality: float | None = None,
     alpha: float = DEFAULT_ALPHA,
     treatment_cost: float = DEFAULT_TREATMENT_COST_PER_PLANT,
     msp_per_quintal: float = DEFAULT_MSP_PER_QUINTAL,
 ) -> dict:
     """Runs the confidence-gap check, then Er/CADRI/EIL, and returns the
-    structured decision dict described in the module's design doc."""
+    structured decision dict described in the module's design doc.
+
+    Sensor readings are optional -- when the Arduino isn't connected, the
+    caller passes all four as None rather than faking values, and this
+    falls back to a vision-only CADRI (confidence * Sv) with no spray
+    decision, since EIL is meaningless without an environmental risk term
+    to compare it against.
+    """
     if disease_class not in PATHOGEN_PARAMS:
         raise ValueError(f"Unknown disease_class {disease_class!r}; expected one of {sorted(PATHOGEN_PARAMS)}")
 
@@ -189,6 +196,27 @@ def compute_decision(
 
     gap = confidence - top2_confidence
     flagged = gap < CONFIDENCE_GAP_THRESHOLD and confidence < LOW_CONFIDENCE_THRESHOLD
+
+    sensors_available = not all(v is None for v in (temperature, humidity, soil_moisture, air_quality))
+
+    if not sensors_available:
+        cadri = confidence * Sv
+        reasoning = (
+            f"{display_name} detected with {Sv:.0%} leaf area affected ({confidence:.0%} confidence). "
+            "Sensor data unavailable — connect Arduino for environmental risk assessment and spray decision."
+        )
+        return {
+            "disease": display_name,
+            "confidence": round(confidence, 4),
+            "severity_score": round(Sv, 4),
+            "environmental_risk": None,
+            "cadri": round(cadri, 4),
+            "eil": None,
+            "decision": "sensors_unavailable",
+            "reasoning": reasoning,
+            "sensors_available": False,
+            "flagged_for_inspection": flagged,
+        }
 
     Er = environmental_risk_score(disease_class, temperature, humidity, soil_moisture, air_quality)
     cadri = compute_cadri(confidence, Sv, Er, alpha)
@@ -236,5 +264,6 @@ def compute_decision(
         "eil": round(eil, 4) if math.isfinite(eil) else None,
         "decision": decision,
         "reasoning": reasoning,
+        "sensors_available": True,
         "flagged_for_inspection": flagged,
     }

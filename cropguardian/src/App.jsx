@@ -15,26 +15,31 @@ import {
 import fieldBg from "./assets/field-bg.jpg";
 import loginBgVideo from "./assets/video/login-bg.mp4";
 import homeHeroVideo from "./assets/video/home-hero.mp4";
+import { apiFetch } from "./api";
 
 /* ---------------------------------------------------------------------- */
 /*  Reference data                                                         */
 /* ---------------------------------------------------------------------- */
 
 const NAV_ITEMS = [
-  { id: "home", label: "Home", icon: LayoutDashboard },
+  { id: "dashboard", label: "Home", icon: LayoutDashboard },
+  { id: "home", label: "About", icon: Sprout },
   { id: "detection", label: "Disease Detection", icon: Camera },
   { id: "storage", label: "Storage Monitoring", icon: Warehouse },
   { id: "history", label: "Spraying History", icon: History },
+];
+
+const MORE_ITEMS = [
   { id: "library", label: "Disease Library", icon: BookOpen },
-  { id: "reports", label: "Reports Center", icon: FileText },
+  { id: "reports", label: "Reports", icon: FileText },
 ];
 
 const HARDWARE = [
   { id: "controller", name: "Controller", detail: "Arduino UNO Q", icon: Cpu },
-  { id: "sht31", name: "SHT31 Sensor", detail: "Temperature / Humidity", icon: Thermometer },
+  { id: "dht22", name: "DHT22 Sensor", detail: "Temperature / Humidity", icon: Thermometer },
   { id: "soil", name: "Soil Moisture Sensor", detail: "Capacitive v2.0", icon: Droplet },
   { id: "mq135", name: "MQ-135 Gas Sensor", detail: "Air Quality / CO2", icon: Wind },
-  { id: "camera", name: "Camera Module", detail: "OV2640 2MP", icon: Camera },
+  { id: "camera", name: "Camera Module", detail: "USB Webcam", icon: Camera },
 ];
 
 const DISEASES = [
@@ -134,6 +139,70 @@ const DISEASES = [
       { title: "Severe Defoliation", days: "Days 19+", desc: "Growth halts almost entirely; flowering and fruit set are severely reduced or stop." },
     ],
   },
+  {
+    name: "Spider Mites (Two-spotted)",
+    sci: "Tetranychus urticae",
+    severity: "Moderate",
+    symptoms: "Tiny yellow or white speckles on upper leaf surface, fine webbing on undersides, leaves eventually bronze and drop.",
+    conditions: "Hot, dry conditions above 27°C with low humidity below 40%.",
+    treatment: "Apply miticide or neem oil spray, increase humidity around plants, remove heavily infested leaves.",
+    precautions: ["Avoid water stress", "Introduce predatory mites", "Inspect undersides of leaves regularly"],
+    recoveryDays: "7–10 days",
+    stages: [
+      { title: "Infestation", days: "Days 1–3", desc: "Mites colonize leaf undersides; stippling just beginning, not yet visible from above." },
+      { title: "Early Damage", days: "Days 4–7", desc: "Yellow speckles appear on upper surface as feeding damage accumulates." },
+      { title: "Active Outbreak", days: "Days 8–12", desc: "Webbing visible, leaves bronze and curl; population exploding in hot dry conditions." },
+      { title: "Severe Defoliation", days: "Days 13+", desc: "Leaves drop, plant weakened; fruit exposed to sunscald." },
+    ],
+  },
+  {
+    name: "Target Spot",
+    sci: "Corynespora cassiicola",
+    severity: "Moderate",
+    symptoms: "Brown circular lesions with concentric rings and yellow halos on leaves, stems, and fruit.",
+    conditions: "Warm temperatures 24–30°C, high humidity, prolonged leaf wetness.",
+    treatment: "Apply chlorothalonil or mancozeb fungicide, improve airflow, avoid overhead irrigation.",
+    precautions: ["Space plants adequately", "Remove infected debris", "Rotate fungicide classes"],
+    recoveryDays: "8–12 days",
+    stages: [
+      { title: "Infection", days: "Days 1–3", desc: "Spores land on wet leaf surfaces; no visible symptoms." },
+      { title: "Early Manifestation", days: "Days 4–6", desc: "Small brown spots appear, mostly on older lower leaves." },
+      { title: "Active Outbreak", days: "Days 7–11", desc: "Lesions enlarge with concentric rings and yellow halos; spread to stems and fruit." },
+      { title: "Severe Defoliation", days: "Days 12+", desc: "Heavy leaf drop and fruit lesions reduce marketability significantly." },
+    ],
+  },
+  {
+    name: "Tomato Mosaic Virus",
+    sci: "ToMV (Tobamovirus)",
+    severity: "High",
+    symptoms: "Mottled light and dark green mosaic pattern on leaves, leaf distortion, stunted growth.",
+    conditions: "Spreads through contact, contaminated tools, and infected seed — not insect-vectored.",
+    treatment: "No cure — remove and destroy infected plants immediately, disinfect all tools with 10% bleach solution.",
+    precautions: ["Use virus-free certified seed", "Disinfect tools between plants", "Wash hands before handling plants"],
+    recoveryDays: "No cure — remove plant",
+    stages: [
+      { title: "Infection", days: "Days 1–5", desc: "Virus enters through wounds or contact; no visible symptoms during incubation." },
+      { title: "Early Manifestation", days: "Days 6–10", desc: "Faint mosaic mottling appears on young leaves." },
+      { title: "Active Outbreak", days: "Days 11–18", desc: "Pronounced mosaic pattern, leaf distortion, and stunting; fruit may show internal browning." },
+      { title: "Severe Defoliation", days: "Days 19+", desc: "Plant growth halts; yield severely reduced or lost entirely." },
+    ],
+  },
+  {
+    name: "Healthy",
+    sci: "No pathogen detected",
+    severity: "Low",
+    symptoms: "No disease symptoms. Leaf tissue is uniformly green with no lesions, spots, or discoloration.",
+    conditions: "Healthy plants thrive in balanced temperature, humidity, and soil moisture conditions.",
+    treatment: "No treatment needed. Continue regular monitoring and maintain optimal growing conditions.",
+    precautions: ["Monitor regularly", "Maintain balanced nutrition", "Ensure adequate airflow"],
+    recoveryDays: "N/A",
+    stages: [
+      { title: "Monitoring", days: "Ongoing", desc: "Continue regular inspection to catch early signs of disease." },
+      { title: "Prevention", days: "Ongoing", desc: "Maintain optimal environmental conditions to prevent disease onset." },
+      { title: "Nutrition", days: "Ongoing", desc: "Ensure balanced fertilization to keep plants resilient." },
+      { title: "Airflow", days: "Ongoing", desc: "Adequate spacing and pruning keeps humidity low around the canopy." },
+    ],
+  },
 ];
 
 const CHAT_SUGGESTIONS = [
@@ -188,59 +257,8 @@ function soilPercentFromRaw(raw, calibration) {
   return Math.round(clamp(pct, 0, 100));
 }
 
-function generateHistory(days) {
-  const arr = [];
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  let detectionsBase = 2;
-  for (let i = 0; i < days; i++) {
-    const detections = Math.max(0, Math.round(detectionsBase + rand(-2, 3)));
-    const byDisease = {};
-    let remaining = detections;
-    while (remaining > 0) {
-      const disease = DISEASES[Math.floor(Math.random() * DISEASES.length)].name;
-      byDisease[disease] = (byDisease[disease] || 0) + 1;
-      remaining -= 1;
-    }
-    arr.push({
-      date: d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-      detections,
-      byDisease,
-      avgTemp: Math.round(clamp(12.5 + rand(-2, 2), 8, 18) * 10) / 10,
-      avgHumidity: Math.round(clamp(85 + rand(-6, 6), 76, 94)),
-      avgSoil: Math.round(clamp(63 + rand(-10, 10), 42, 82)),
-    });
-    d.setDate(d.getDate() + 1);
-  }
-  return arr;
-}
-
 const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 const staggerItem = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } } };
-
-function seedTelemetry() {
-  const arr = [];
-  let t = new Date();
-  t.setMinutes(t.getMinutes() - 11 * 5);
-  let soilTrue = 63, temp = 12.5, hum = 85, co2 = 460;
-  for (let i = 0; i < 12; i++) {
-    soilTrue = clamp(soilTrue + rand(-2.5, 2.5), 45, 78);
-    temp = clamp(temp + rand(-0.4, 0.4), 9, 16);
-    hum = clamp(hum + rand(-1.5, 1.5), 78, 92);
-    co2 = clamp(co2 + rand(-15, 15), 400, 560);
-    const soilRaw = Math.round(clamp(ACTUAL_DRY_RAW - (soilTrue / 100) * (ACTUAL_DRY_RAW - ACTUAL_WET_RAW) + rand(-15, 15), 300, 900));
-    arr.push({
-      time: t.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }),
-      soilRaw,
-      soilMoisture: soilPercentFromRaw(soilRaw, DEFAULT_CALIBRATION),
-      temp: Math.round(temp * 10) / 10,
-      humidity: Math.round(hum),
-      co2: Math.round(co2),
-    });
-    t = new Date(t.getTime() + 5 * 60000);
-  }
-  return arr;
-}
 
 /* ---------------------------------------------------------------------- */
 /*  Reusable UI primitives                                                 */
@@ -837,125 +855,125 @@ function LoginScreen({ onLogin }) {
 /*  Dashboard view                                                          */
 /* ---------------------------------------------------------------------- */
 
-function DashboardView({ telemetry, pumpOverride, setPumpOverride, fanOverride, setFanOverride, overdoseLocked, cooldownRemaining, activityLog, alertCount, tankLevel }) {
+function StatusChip({ tone, label, icon: Icon }) {
+  const palette = {
+    emerald: { glow: "bg-emerald-400", ring: "ring-emerald-200/60", text: "text-forest-800", dot: "bg-emerald-500" },
+    amber: { glow: "bg-amber-400", ring: "ring-amber-200/60", text: "text-amber-800", dot: "bg-amber-500" },
+  };
+  const p = palette[tone] || palette.emerald;
   return (
-    <div className="space-y-6">
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
-      >
-        <motion.div variants={staggerItem}><KpiCard label="Crop Health Index" value="94" unit="%" icon={Leaf} tone="emerald" trend="+1.2% vs. yesterday" /></motion.div>
-        <motion.div variants={staggerItem}><KpiCard label="AI Inference Confidence" value="98.7" unit="%" icon={Camera} tone="sky" trend="Model v2.3" /></motion.div>
-        <motion.div variants={staggerItem}><KpiCard label="Storage Vault Status" value="Optimal" icon={Warehouse} tone="earth" trend="Within safe range" /></motion.div>
-        <motion.div variants={staggerItem}><KpiCard label="Active Alerts" value={String(alertCount)} icon={AlertTriangle} tone={alertCount > 0 ? "amber" : "emerald"} trend={alertCount > 0 ? "Requires review" : "All clear"} /></motion.div>
-      </motion.div>
+    <div
+      className={`relative flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-medium backdrop-blur-md bg-white/50 ring-1 ${p.ring} shadow-[0_4px_18px_rgba(15,56,0,0.08)] overflow-hidden`}
+    >
+      <motion.span
+        className={`absolute -left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full ${p.glow} blur-xl pointer-events-none`}
+        animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.3, 1] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {Icon ? <Icon size={14} className={`relative shrink-0 ${p.text}`} /> : <span className={`relative w-2 h-2 rounded-full shrink-0 ${p.dot}`} />}
+      <span className={`relative ${p.text}`}>{label}</span>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        <div className="xl:col-span-3 space-y-6">
-          <Card className="p-5">
-            <SectionTitle icon={Droplet} title="Greenhouse Soil Moisture" sub="Zone 1 · live" />
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={telemetry} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="soilFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2c6642" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#2c6642" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="time" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} domain={[30, 90]} unit="%" />
-                <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }} />
-                <Area type="monotone" dataKey="soilMoisture" name="Soil Moisture" stroke="#2c6642" strokeWidth={2} fill="url(#soilFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Card>
-
-          <Card className="p-5">
-            <SectionTitle icon={Thermometer} title="Storage Climate Analytics" sub="Temp · Humidity · CO2" tone="sky" />
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={telemetry} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="time" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="left" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="right" orientation="right" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }} />
-                <Legend wrapperStyle={{ fontSize: 11, color: "#6b7280" }} />
-                <Line yAxisId="left" type="monotone" dataKey="temp" name="Temp (°C)" stroke="#8f6339" strokeWidth={2} dot={false} />
-                <Line yAxisId="left" type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#2f7aab" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="co2" name="CO2 (ppm)" stroke="#235235" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Card>
-        </div>
-
-        <div className="xl:col-span-2 space-y-6">
-          <Card className="p-5">
-            <SectionTitle icon={Radio} title="Live Hardware Matrix" />
-            <div className="space-y-1">
-              {HARDWARE.map((h) => (
-                <motion.div
-                  key={h.id}
-                  whileHover={{ x: 3 }}
-                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded-lg border-b border-gray-100 last:border-0 hover:bg-forest-50/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-forest-50 to-aqua-50 flex items-center justify-center text-forest-600">
-                      <h.icon size={15} />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-800 font-medium leading-tight">{h.name}</p>
-                      <p className="text-xs text-gray-400 leading-tight">{h.detail}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-forest-600 font-mono">Online</span>
-                    <StatusDot online={true} />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center justify-between">
-              <SectionTitle icon={Droplets} title="Spray Tank Level" tone="sky" />
-            </div>
-            <div className="flex items-center justify-center gap-6">
-              <TankGauge level={tankLevel} />
-              <div className="text-sm text-gray-500 max-w-[10rem]">
-                {tankLevel > 45 && "Sufficient liquid for autonomous operation."}
-                {tankLevel <= 45 && tankLevel > 15 && "Getting low — plan a refill soon."}
-                {tankLevel <= 15 && "Critically low — refill from Settings before next spray cycle."}
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <SectionTitle icon={Zap} title="Quick Actions" />
-            <Toggle checked={pumpOverride} onChange={setPumpOverride} label="Manual Pump Override" sublabel="Zone 1 — Digital Pin D7" />
-            <Toggle checked={fanOverride} onChange={setFanOverride} label="Manual 12V Fan Override" sublabel="Storage Vault Ventilation" />
-            {(pumpOverride || fanOverride) && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <Badge tone="amber" icon={AlertTriangle}>Autonomous logic paused — manual control active</Badge>
-              </div>
-            )}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              {overdoseLocked ? (
-                <Badge tone="amber" icon={Lock}>Overdose Prevention Active — Spray Suppressed ({cooldownRemaining}s)</Badge>
-              ) : (
-                <Badge tone="emerald" icon={ShieldCheck}>Overdose Lock — Ready</Badge>
-              )}
-            </div>
-          </Card>
-        </div>
+function DashboardView({ telemetry, overdoseLocked, cooldownRemaining, activityLog, alertCount, onQuickScan, serialConnected, warehouseStatus }) {
+  return (
+    <div className="relative -m-6 p-6 overflow-hidden">
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute -top-16 left-1/4 w-[26rem] h-[26rem] rounded-full bg-forest-200/50 blur-3xl"
+          animate={{ x: [0, 30, -15, 0], y: [0, 20, -15, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute top-1/3 -right-24 w-96 h-96 rounded-full bg-leaf-200/50 blur-3xl"
+          animate={{ x: [0, -25, 15, 0], y: [0, -20, 10, 0] }}
+          transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-0 left-1/5 w-80 h-80 rounded-full bg-lime-100/60 blur-3xl"
+          animate={{ x: [0, 20, -20, 0], y: [0, -10, 15, 0] }}
+          transition={{ duration: 19, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-forest-50/60 via-white to-lime-50/50" />
       </div>
 
+      <div className="relative space-y-6">
+
+      {/* Tagline */}
+      <div className="pt-2">
+        <motion.h1
+          className="font-display font-bold text-3xl md:text-4xl bg-clip-text text-transparent bg-gradient-to-r from-forest-700 via-leaf-500 to-forest-700"
+          style={{ backgroundSize: "200% auto" }}
+          animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          Guard every leaf.
+        </motion.h1>
+        <p className="text-sm text-gray-500 mt-1">AI-powered crop monitoring — field to storage.</p>
+      </div>
+
+      {/* Status chips */}
+      <div className="flex flex-wrap gap-3">
+        <StatusChip
+          tone={warehouseStatus?.fan_action === "FAN_ON" ? "amber" : "emerald"}
+          label={`Storage: ${warehouseStatus?.fan_action === "FAN_ON" ? "Attention needed" : "Optimal"}`}
+        />
+        <StatusChip
+          tone={alertCount > 0 ? "amber" : "emerald"}
+          icon={AlertTriangle}
+          label={alertCount > 0 ? `${alertCount} Active Alert${alertCount > 1 ? "s" : ""}` : "No Active Alerts"}
+        />
+        {overdoseLocked && (
+          <StatusChip tone="amber" icon={Lock} label={`Spray cooldown — ${cooldownRemaining}s remaining`} />
+        )}
+      </div>
+
+      {/* Storage alert banner */}
+      {warehouseStatus?.fan_action === "FAN_ON" && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4"
+        >
+          <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Storage Alert</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              {warehouseStatus?.reasons?.map(r =>
+                r === "temperature_high" ? "Temperature exceeds 25°C." :
+                r === "humidity_high" ? "Humidity exceeds 70%." :
+                r === "gas_high" ? "Gas level elevated." : r
+              ).join(" ")} Fan activated automatically.
+            </p>
+            <button
+              onClick={() => onQuickScan("navigate_storage")}
+              className="text-xs text-amber-600 hover:text-amber-800 font-medium mt-1.5 flex items-center gap-1"
+            >
+              View storage details →
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Quick scan */}
+      <Card className="p-6">
+        <SectionTitle icon={Camera} title="Quick Disease Scan" sub="Upload a leaf photo" />
+        <QuickScanWidget onScanComplete={onQuickScan} />
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <button
+            onClick={() => onQuickScan("navigate")}
+            className="text-sm text-forest-600 hover:text-forest-800 font-medium flex items-center gap-1.5 transition-colors"
+          >
+            For detailed analysis, CADRI scoring and spray decisions →
+          </button>
+        </div>
+      </Card>
+
+      {/* Activity feed */}
       <Card className="p-5">
         <SectionTitle icon={Activity} title="Real-Time Activity Feed" sub="Live" />
-        <div className="space-y-0 max-h-64 overflow-y-auto pr-1">
+        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
           <AnimatePresence initial={false}>
             {activityLog.map((log) => (
               <motion.div
@@ -964,7 +982,7 @@ function DashboardView({ telemetry, pumpOverride, setPumpOverride, fanOverride, 
                 initial={{ opacity: 0, x: -12, height: 0 }}
                 animate={{ opacity: 1, x: 0, height: "auto" }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
-                className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-0"
+                className={`flex items-start gap-3 py-2 pl-3 pr-1 border-l-4 rounded-r-md hover:bg-forest-50/40 transition-colors ${LOG_ACCENT[log.type] || LOG_ACCENT.info}`}
               >
                 <span className="text-xs font-mono text-gray-400 mt-0.5 shrink-0 w-20">{log.time}</span>
                 <LogIcon type={log.type} />
@@ -974,9 +992,120 @@ function DashboardView({ telemetry, pumpOverride, setPumpOverride, fanOverride, 
           </AnimatePresence>
         </div>
       </Card>
+
+      </div>
     </div>
   );
 }
+
+function QuickScanWidget({ onScanComplete }) {
+  const [imgSrc, setImgSrc] = useState(null);
+  const [file, setFile] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState(null);
+  const [skipReason, setSkipReason] = useState(null);
+  const inputRef = useRef(null);
+
+  const handleFile = (f) => {
+    if (!f || !f.type.startsWith("image/")) return;
+    setFile(f);
+    setResult(null);
+    setSkipReason(null);
+    const reader = new FileReader();
+    reader.onload = (e) => setImgSrc(e.target.result);
+    reader.readAsDataURL(f);
+  };
+
+  const analyze = async () => {
+    if (!file) return;
+    setAnalyzing(true);
+    const formData = new FormData();
+    formData.append("image", file);
+    const res = await apiFetch("/analyze", { method: "POST", body: formData });
+    setAnalyzing(false);
+    if (!res || !res.ok) { setSkipReason("Backend unavailable."); return; }
+    if (res.data.skipped) { setSkipReason(res.data.reason === "cooldown_active" ? `Cooldown active — ${Math.round(res.data.cooldown_seconds_remaining)}s remaining.` : "Pump already running."); return; }
+    if (!res.data.leaves || res.data.leaves.length === 0) { setResult({ detected: false }); return; }
+    const leaf = res.data.leaves[0];
+    setResult({
+      detected: leaf.decision !== "no_spray" && leaf.decision !== "manual_inspection",
+      disease: leaf.disease,
+      confidence: Math.round(leaf.confidence * 100),
+      decision: leaf.decision,
+    });
+    onScanComplete(res.data);
+  };
+
+  return (
+    <div className="space-y-4">
+      {!imgSrc ? (
+        <motion.div
+          className="relative rounded-3xl p-[3px]"
+          style={{ backgroundImage: "linear-gradient(120deg, #2c6642, #6bd67e, #2f7aab, #2c6642)", backgroundSize: "300% 300%" }}
+          animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="w-full h-60 rounded-[calc(1.5rem-3px)] bg-forest-50/80 hover:bg-forest-50 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-forest-600 transition-colors"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-white/80 flex items-center justify-center shadow-sm">
+              <Leaf size={34} className="text-forest-500" />
+            </div>
+            <p className="text-base font-semibold">Drop a leaf photo to scan instantly.</p>
+            <p className="text-xs text-forest-500/70 flex items-center gap-1"><UploadCloud size={12} /> or click to browse</p>
+          </button>
+        </motion.div>
+      ) : (
+        <div className="flex items-center gap-4">
+          <img src={imgSrc} alt="Leaf" className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center gap-4">
+              {!result && !skipReason && (
+                <motion.button
+                  onClick={analyze}
+                  disabled={analyzing}
+                  whileHover={{ scale: analyzing ? 1 : 1.03 }}
+                  whileTap={{ scale: analyzing ? 1 : 0.96 }}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-forest-600 to-forest-500 disabled:from-gray-300 disabled:to-gray-300 text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-md transition-colors"
+                >
+                  {analyzing ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
+                  {analyzing ? "Analyzing..." : "Analyze"}
+                </motion.button>
+              )}
+              <button onClick={() => { setImgSrc(null); setFile(null); setResult(null); setSkipReason(null); }} className="text-xs text-gray-400 hover:text-gray-600">
+                Remove
+              </button>
+            </div>
+            {skipReason && <p className="text-sm text-amber-700 font-medium">{skipReason}</p>}
+            {result && result.decision === "sensors_unavailable" ? (
+              <div className="rounded-xl px-4 py-3 text-sm bg-amber-50 border border-amber-100">
+                <p className="font-medium text-amber-800">{result.disease} detected — {result.confidence}% confidence</p>
+                <p className="text-amber-700 mt-0.5">Connect Arduino for spray decision.</p>
+              </div>
+            ) : result && (
+              <div className={`rounded-xl px-4 py-3 text-sm font-medium ${result.detected ? "bg-rose-50 text-rose-800 border border-rose-100" : "bg-forest-50 text-forest-800 border border-forest-100"}`}>
+                {result.detected
+                  ? `${result.disease} detected — ${result.confidence}% confidence. Decision: ${result.decision?.replace("_", " ")}.`
+                  : "No disease detected — leaf appears healthy."}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+    </div>
+  );
+}
+
+const LOG_ACCENT = {
+  info: "border-aqua-400",
+  detect: "border-rose-400",
+  spray: "border-forest-400",
+  lock: "border-rose-500",
+  alert: "border-red-500",
+  system: "border-gray-300",
+};
 
 function LogIcon({ type }) {
   const map = {
@@ -994,40 +1123,90 @@ function LogIcon({ type }) {
 /*  Disease Detection view — photo upload flow                             */
 /* ---------------------------------------------------------------------- */
 
+// Maps a CADRI display name (e.g. "Bacterial Spot") back to the matching
+// local DISEASES entry for treatment/precautions detail. Matched both ways
+// since local names are sometimes a superset of the API's (e.g. "Tomato
+// Yellow Leaf Curl Virus" vs. "Yellow Leaf Curl Virus").
+function matchDiseaseRecord(name) {
+  if (!name) return null;
+  const norm = name.toLowerCase();
+  return DISEASES.find((d) => {
+    const dn = d.name.toLowerCase();
+    return dn.includes(norm) || norm.includes(dn);
+  }) || null;
+}
+
 function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemaining, sprayState, tankLevel }) {
   const [imgSrc, setImgSrc] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const inputRef = useRef(null);
 
-  const handleFile = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    setFileName(file.name);
+  const handleFile = (selected) => {
+    if (!selected || !selected.type.startsWith("image/")) return;
+    setFileName(selected.name);
     setResult(null);
+    setFile(selected);
     const reader = new FileReader();
     reader.onload = (e) => setImgSrc(e.target.result);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(selected);
   };
 
-  const analyze = () => {
-    if (!imgSrc) return;
+  const analyze = async () => {
+    if (!imgSrc || !file) return;
     setAnalyzing(true);
-    setTimeout(() => {
-      const detected = Math.random() < 0.6;
-      const count = detected ? (Math.random() < 0.25 ? 2 : 1) : 0;
-      const disease = DISEASES[Math.floor(Math.random() * DISEASES.length)];
-      const confidence = Math.round(rand(91, 99.4) * 10) / 10;
-      const outcome = { detected, count, disease: detected ? disease.name : "Healthy Leaf Tissue", confidence, record: detected ? disease : null };
+    const formData = new FormData();
+    formData.append("image", file);
+    const res = await apiFetch("/analyze", { method: "POST", body: formData });
+    setAnalyzing(false);
+
+    if (!res || !res.ok) {
+      setResult({ error: true, message: res?.data?.detail || "Could not reach the analysis backend. Check the API server and try again." });
+      return;
+    }
+
+    const data = res.data;
+    if (data.skipped) {
+      const outcome = {
+        skipped: true,
+        reason: data.reason,
+        cooldownSecondsRemaining: data.cooldown_seconds_remaining,
+      };
       setResult(outcome);
-      setAnalyzing(false);
       onScanComplete(outcome);
-    }, 1600);
+      return;
+    }
+
+    if (!data.leaves || data.leaves.length === 0) {
+      const outcome = { detected: false, count: 0, disease: "No Leaf Detected", confidence: 0, record: null };
+      setResult(outcome);
+      onScanComplete(outcome);
+      return;
+    }
+
+    const leaf = data.leaves[0];
+    const outcome = {
+      detected: leaf.decision !== "no_spray" && leaf.decision !== "manual_inspection",
+      count: data.leaves.length,
+      disease: leaf.disease,
+      confidence: Math.round(leaf.confidence * 100),
+      cadri: leaf.cadri,
+      eil: leaf.eil,
+      decision: leaf.decision,
+      reasoning: leaf.reasoning,
+      sensors_available: leaf.sensors_available,
+      record: matchDiseaseRecord(leaf.disease),
+    };
+    setResult(outcome);
+    onScanComplete(outcome);
   };
 
   const reset = () => {
     setImgSrc(null);
     setFileName("");
+    setFile(null);
     setResult(null);
   };
 
@@ -1110,7 +1289,27 @@ function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemainin
           <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
           <Card className="p-5">
             <SectionTitle icon={Bug} title="Detection Result" />
-            {!result.detected ? (
+            {result.error ? (
+              <div className="flex items-start gap-3 bg-red-50 ring-1 ring-red-100 rounded-lg p-4">
+                <AlertTriangle size={20} className="text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">Analysis failed</p>
+                  <p className="text-sm text-red-700 mt-0.5">{result.message}</p>
+                </div>
+              </div>
+            ) : result.skipped ? (
+              <div className="flex items-start gap-3 bg-amber-50 ring-1 ring-amber-100 rounded-lg p-4">
+                <Lock size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">
+                    Spray skipped — {result.reason === "cooldown_active" ? "cooldown active" : "pump already running"}
+                  </p>
+                  {result.cooldownSecondsRemaining != null && (
+                    <p className="text-sm text-amber-700 mt-0.5">Cooldown resets in {result.cooldownSecondsRemaining}s.</p>
+                  )}
+                </div>
+              </div>
+            ) : !result.detected ? (
               <div className="flex items-start gap-3 bg-forest-50 ring-1 ring-forest-100 rounded-lg p-4">
                 <CheckCircle2 size={20} className="text-forest-600 shrink-0 mt-0.5" />
                 <div>
@@ -1130,26 +1329,53 @@ function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemainin
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">What should be done</p>
-                  <p className="text-sm text-gray-700 leading-relaxed">{result.record.treatment}</p>
-                </div>
+                {!result.sensors_available && (
+                  <div className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2 text-xs text-amber-700">
+                    <AlertTriangle size={13} />
+                    Environmental risk unavailable — Arduino not connected. Spray decision skipped.
+                  </div>
+                )}
+
+                {result.reasoning && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">CADRI Reasoning</p>
+                    <p className="text-sm text-gray-700 leading-relaxed">{result.reasoning}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-rose-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">Estimated recovery</p>
-                    <p className="text-sm font-semibold text-gray-800">{result.record.recoveryDays}</p>
+                    <p className="text-xs text-gray-400 mb-1">CADRI score</p>
+                    <p className="text-sm font-semibold text-gray-800">{result.cadri != null ? result.cadri.toFixed(3) : "—"}</p>
                   </div>
                   <div className="bg-rose-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-400 mb-1">Severity</p>
-                    <p className="text-sm font-semibold text-gray-800">{result.record.severity}</p>
+                    <p className="text-xs text-gray-400 mb-1">EIL threshold</p>
+                    <p className="text-sm font-semibold text-gray-800">{result.eil != null ? result.eil.toFixed(3) : "No threshold"}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Precautions to take</p>
-                  <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                    {result.record.precautions.map((p) => <li key={p}>{p}</li>)}
-                  </ul>
-                </div>
+                {result.record && (
+                  <>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">What should be done</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{result.record.treatment}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-rose-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-400 mb-1">Estimated recovery</p>
+                        <p className="text-sm font-semibold text-gray-800">{result.record.recoveryDays}</p>
+                      </div>
+                      <div className="bg-rose-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-400 mb-1">Severity</p>
+                        <p className="text-sm font-semibold text-gray-800">{result.record.severity}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Precautions to take</p>
+                      <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                        {result.record.precautions.map((p) => <li key={p}>{p}</li>)}
+                      </ul>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </Card>
@@ -1162,8 +1388,8 @@ function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemainin
         <Card className="p-5">
           <SectionTitle icon={Camera} title="Inference Details" />
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span className="text-gray-400">Model</span><span className="text-gray-700 font-mono">MobileNetV3-Leaf</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Classes</span><span className="text-gray-700 font-mono">6 pathogens + healthy</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Model</span><span className="text-gray-700 font-mono">EfficientNetV2</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Classes</span><span className="text-gray-700 font-mono">10 diseases + healthy</span></div>
             <div className="flex justify-between"><span className="text-gray-400">Confidence threshold</span><span className="text-gray-700 font-mono">90.0%</span></div>
           </div>
         </Card>
@@ -1212,36 +1438,67 @@ function deriveStorageConclusion(latest) {
   let status = "Optimal";
   let tone = "emerald";
 
-  if (latest.temp > 16) {
-    notes.push("Temperature is trending above the ideal 10–16°C storage band — increase cooling to slow ripening and spoilage.");
-    status = "Attention needed"; tone = "amber";
-  } else if (latest.temp < 9) {
-    notes.push("Temperature is close to the lower safe limit — chilling injury is possible if it drops further.");
+  if (latest.temp > 25) {
+    notes.push("Temperature exceeds 25°C — fan activated to prevent rapid spoilage and ripening.");
     status = "Attention needed"; tone = "amber";
   } else {
-    notes.push("Temperature is within the ideal 10–16°C range for post-harvest tomato storage.");
+    notes.push("Temperature is within safe range for tomato storage.");
   }
 
-  if (latest.humidity > 90) {
-    notes.push("Humidity is high — this raises the risk of mold and bacterial rot. Increase ventilation.");
+  if (latest.humidity > 70) {
+    notes.push("Humidity above 70% — risk of mold and fungal growth. Fan activated for ventilation.");
     status = "Attention needed"; tone = "amber";
   } else {
-    notes.push("Humidity is within the safe 80–90% band, minimizing shrivel and rot risk.");
+    notes.push("Humidity is within the safe range for post-harvest storage.");
   }
 
-  if (latest.co2 > 550) {
-    notes.push("CO2 concentration is elevated — improve air exchange to prevent fermentation off-flavors.");
+  if (latest.co2 > 60) {
+    notes.push("Gas level elevated — ventilation triggered to clear air accumulation.");
     status = "Attention needed"; tone = "amber";
   } else {
-    notes.push("CO2 concentration is within the safe range for the current ventilation cycle.");
+    notes.push("Air quality is within safe limits for current storage conditions.");
   }
 
   return { status, tone, notes };
 }
 
-function StorageMonitoringView({ telemetry }) {
+function StorageMonitoringView({ telemetry, warehouseStatus }) {
   const latest = telemetry[telemetry.length - 1];
-  const conclusion = deriveStorageConclusion(latest);
+
+  if (!latest) {
+    return (
+      <div className="relative -m-6 p-6">
+        <Card className="p-10 text-center">
+          <p className="text-sm text-gray-400">Waiting for live sensor data…</p>
+        </Card>
+      </div>
+    );
+  }
+
+  // Prefer the backend's own warehouse decision (ground truth for what the
+  // fan was actually commanded to do) over the locally-derived conclusion;
+  // fall back to the local thresholds only while the poll hasn't landed yet.
+  const conclusion = warehouseStatus
+    ? {
+        status: warehouseStatus.reasons.length > 0 ? "Attention needed" : "Optimal",
+        tone: warehouseStatus.reasons.length > 0 ? "amber" : "emerald",
+        notes: [
+          warehouseStatus.status.temperature === "critical"
+            ? "Temperature exceeds 25°C — fan activated to prevent rapid spoilage and ripening."
+            : "Temperature is within safe range for tomato storage.",
+          warehouseStatus.status.humidity === "critical"
+            ? "Humidity above 70% — risk of mold and fungal growth. Fan activated for ventilation."
+            : "Humidity is within the safe range for post-harvest storage.",
+          warehouseStatus.status.gas === "critical"
+            ? "Gas level elevated — ventilation triggered to clear air accumulation."
+            : "Air quality is within safe limits for current storage conditions.",
+        ],
+      }
+    : deriveStorageConclusion(latest);
+
+  const kpiTone = (sensorKey, fallback) =>
+    warehouseStatus ? (warehouseStatus.status[sensorKey] === "critical" ? "amber" : "emerald") : fallback;
+  const fanOn = warehouseStatus?.fan_action === "FAN_ON";
 
   const noteStyles = [
     { bg: "bg-aqua-50", ring: "ring-aqua-200", text: "text-aqua-800", iconBg: "bg-aqua-500", shape: "rounded-3xl" },
@@ -1273,9 +1530,9 @@ function StorageMonitoringView({ telemetry }) {
 
       <div className="relative space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard label="Storage Temperature" value={latest.temp} unit="°C" icon={Thermometer} tone="amber" />
-        <KpiCard label="Storage Humidity" value={latest.humidity} unit="%" icon={CloudRain} tone="sky" />
-        <KpiCard label="CO2 Concentration" value={latest.co2} unit="ppm" icon={Wind} tone="emerald" />
+        <KpiCard label="Storage Temperature" value={latest.temp} unit="°C" icon={Thermometer} tone={kpiTone("temperature", "amber")} />
+        <KpiCard label="Storage Humidity" value={latest.humidity} unit="%" icon={CloudRain} tone={kpiTone("humidity", "sky")} />
+        <KpiCard label="CO2 Concentration" value={latest.co2} unit="ppm" icon={Wind} tone={kpiTone("gas", "emerald")} />
       </div>
 
       <Card className="p-5">
@@ -1298,8 +1555,20 @@ function StorageMonitoringView({ telemetry }) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <SectionTitle icon={Info} title="What this means" sub="" />
-          <Badge tone={conclusion.tone} icon={conclusion.tone === "emerald" ? CheckCircle2 : AlertTriangle}>{conclusion.status}</Badge>
+          <div className="flex items-center gap-2">
+            {warehouseStatus && (
+              <Badge tone={fanOn ? "amber" : "slate"} icon={Wind}>{warehouseStatus.fan_action}</Badge>
+            )}
+            <Badge tone={conclusion.tone} icon={conclusion.tone === "emerald" ? CheckCircle2 : AlertTriangle}>{conclusion.status}</Badge>
+          </div>
         </div>
+        {warehouseStatus && warehouseStatus.reasons.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {warehouseStatus.reasons.map((r) => (
+              <Badge key={r} tone="amber" icon={AlertTriangle}>{r.replace(/_/g, " ")}</Badge>
+            ))}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {conclusion.notes.map((n, i) => {
             const s = noteStyles[i % noteStyles.length];
@@ -1445,6 +1714,10 @@ const PLANT_LEAF_LAYOUT = [
   { x: 470, y: 400, side: 1 },
   { x: 160, y: 310, side: -1 },
   { x: 440, y: 230, side: 1 },
+  { x: 155, y: 175, side: -1 },
+  { x: 445, y: 130, side: 1 },
+  { x: 180, y: 85, side: -1 },
+  { x: 420, y: 55, side: 1 },
 ];
 
 function PlantLeaf({ x, y, side, color, name, onClick, delay }) {
@@ -1608,35 +1881,38 @@ function DiseaseLibraryView() {
 /*  Reports Center view — proper written report                           */
 /* ---------------------------------------------------------------------- */
 
-function ReportsView({ sprayLog, history }) {
+function ReportsView({ sprayLog }) {
   const detections = sprayLog.filter((r) => r.confidence != null);
-  const executed = sprayLog.filter((r) => r.status === "Executed" && r.action.includes("fungicide"));
+  const executed = sprayLog.filter((r) => r.status === "Executed");
   const suppressed = sprayLog.filter((r) => r.status === "Suppressed");
   const totalDetected = detections.reduce((sum, r) => sum + (r.count || 1), 0);
 
-  const [liveHistory, setLiveHistory] = useState(history);
-  useEffect(() => setLiveHistory(history), [history]);
-  useEffect(() => {
-    const t = setInterval(() => {
-      setLiveHistory((prev) => {
-        const copy = [...prev];
-        const idx = copy.length - 1;
-        const jitter = Math.random() < 0.5 ? -1 : 1;
-        copy[idx] = { ...copy[idx], detections: Math.max(0, copy[idx].detections + (Math.random() < 0.35 ? jitter : 0)) };
-        return copy;
-      });
-    }, 3000);
-    return () => clearInterval(t);
+  // sprayLog is newest-first; walk it oldest-first so the chart reads
+  // chronologically, grouping by day (r.time carries no date component today,
+  // so this falls back to one bucket per distinct time value — still real
+  // data, just as granular as what's actually being logged).
+  const detectionsByDay = [...sprayLog].reverse().reduce((days, r) => {
+    const day = r.time.split(",")[0];
+    const bucket = days.find((d) => d.date === day);
+    if (bucket) bucket.count += 1;
+    else days.push({ date: day, count: 1 });
+    return days;
   }, []);
 
-  const diseaseBreakdown = DISEASES.map((d, i) => ({
-    name: d.name.length > 16 ? d.name.slice(0, 15) + "…" : d.name,
-    fullName: d.name,
-    count: history.reduce((sum, day) => sum + (day.byDisease[d.name] || 0), 0),
-    fill: ["#ec4899", "#8b5cf6", "#06b6d4", "#f97316", "#10b981", "#f43f5e"][i % 6],
-  })).filter((d) => d.count > 0).sort((a, b) => b.count - a.count);
-
-  const totalHistoryDetections = history.reduce((sum, day) => sum + day.detections, 0);
+  const diseaseBreakdown = Object.entries(
+    sprayLog.reduce((counts, r) => {
+      if (!r.trigger) return counts;
+      counts[r.trigger] = (counts[r.trigger] || 0) + 1;
+      return counts;
+    }, {})
+  )
+    .map(([trigger, count], i) => ({
+      name: trigger.length > 16 ? trigger.slice(0, 15) + "…" : trigger,
+      fullName: trigger,
+      count,
+      fill: ["#ec4899", "#8b5cf6", "#06b6d4", "#f97316", "#10b981", "#f43f5e"][i % 6],
+    }))
+    .sort((a, b) => b.count - a.count);
 
   const exportReport = () => {
     const lines = [
@@ -1679,105 +1955,113 @@ function ReportsView({ sprayLog, history }) {
         </motion.button>
       </div>
 
-      <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <motion.div variants={staggerItem}><KpiCard label="Diseases Detected" value={String(totalDetected)} icon={Bug} tone="amber" /></motion.div>
-        <motion.div variants={staggerItem}><KpiCard label="Sprays Executed" value={String(executed.length)} icon={Droplet} tone="emerald" /></motion.div>
-        <motion.div variants={staggerItem}><KpiCard label="Sprays Suppressed" value={String(suppressed.length)} icon={Lock} tone="sky" trend="By overdose lock" /></motion.div>
-      </motion.div>
+      {sprayLog.length === 0 ? (
+        <Card className="p-10 text-center">
+          <p className="text-sm text-gray-400">No spray events logged yet. Run a scan from Disease Detection to populate this report.</p>
+        </Card>
+      ) : (
+        <>
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <motion.div variants={staggerItem}><KpiCard label="Diseases Detected" value={String(totalDetected)} icon={Bug} tone="amber" /></motion.div>
+            <motion.div variants={staggerItem}><KpiCard label="Sprays Executed" value={String(executed.length)} icon={Droplet} tone="emerald" /></motion.div>
+            <motion.div variants={staggerItem}><KpiCard label="Sprays Suppressed" value={String(suppressed.length)} icon={Lock} tone="sky" trend="By overdose lock" /></motion.div>
+          </motion.div>
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-1">
-          <SectionTitle icon={Activity} title="Trends & Analytics" sub={`Last 14 days · ${totalHistoryDetections} indicators total`} tone="earth" />
-          <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-            <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity }} className="w-2 h-2 rounded-full bg-emerald-500" />
-            Live
-          </span>
-        </div>
-        <p className="text-xs text-gray-500 font-medium mb-2 mt-3">Detections per day</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={liveHistory} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-            <defs>
-              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ec4899" />
-                <stop offset="100%" stopColor="#8b5cf6" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey="date" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
-            <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }} />
-            <Bar dataKey="detections" name="Detections" fill="url(#barGradient)" radius={[6, 6, 0, 0]} animationDuration={500} />
-          </BarChart>
-        </ResponsiveContainer>
-
-        {diseaseBreakdown.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-500 font-medium mb-2">Detections by disease type (14 days)</p>
-            <ResponsiveContainer width="100%" height={Math.max(120, diseaseBreakdown.length * 34)}>
-              <BarChart data={diseaseBreakdown} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                <XAxis type="number" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} width={130} />
-                <Tooltip
-                  contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }}
-                  formatter={(value, name, props) => [value, props.payload.fullName]}
-                />
-                <Bar dataKey="count" name="Detections" radius={[0, 6, 6, 0]} animationDuration={600}>
-                  {diseaseBreakdown.map((d) => <Cell key={d.fullName} fill={d.fill} />)}
-                </Bar>
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-1">
+              <SectionTitle icon={Activity} title="Trends & Analytics" sub={`${sprayLog.length} event${sprayLog.length === 1 ? "" : "s"} logged`} tone="earth" />
+              <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity }} className="w-2 h-2 rounded-full bg-emerald-500" />
+                Live
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 font-medium mb-2 mt-3">Detections per day</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={detectionsByDay} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ec4899" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis dataKey="date" stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="count" name="Events" fill="url(#barGradient)" radius={[6, 6, 0, 0]} animationDuration={500} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        )}
-      </Card>
 
-      <Card className="p-5">
-        <SectionTitle icon={FileText} title="Detection & Treatment Report" sub={`${detections.length} entries`} />
-        {detections.length === 0 ? (
-          <p className="text-sm text-gray-400 py-6 text-center">No detections logged yet. Run a scan from Disease Detection to populate this report.</p>
-        ) : (
-          <div className="space-y-3">
-            {detections.map((r) => (
-              <div key={r.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-gray-400" />
-                    <span className="text-xs font-mono text-gray-400">{r.time}</span>
-                    <span className="font-semibold text-gray-800 text-sm">{r.trigger}</span>
-                  </div>
-                  {r.status === "Executed" && <Badge tone="emerald" icon={CheckCircle2}>Executed</Badge>}
-                  {r.status === "Suppressed" && <Badge tone="amber" icon={Lock}>Suppressed</Badge>}
-                  {r.status === "Info" && <Badge tone="slate" icon={Info}>Clear</Badge>}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-                  <div>
-                    <p className="text-xs text-gray-400">Detected</p>
-                    <p className="text-sm font-medium text-gray-800">{r.count || 0} indicator{(r.count || 0) === 1 ? "" : "s"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 flex items-center gap-1"><Timer size={11} /> Spray duration</p>
-                    <p className="text-sm font-medium text-gray-800">{r.durationSec ? `${r.durationSec}s` : "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Confidence</p>
-                    <p className="text-sm font-medium text-gray-800">{r.confidence ? `${r.confidence}%` : "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Est. recovery</p>
-                    <p className="text-sm font-medium text-gray-800">{r.recoveryDays || "—"}</p>
-                  </div>
-                </div>
-                {r.precautions && r.precautions.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-400 mb-1">Precautions</p>
-                    <p className="text-sm text-gray-600">{r.precautions.join(" · ")}</p>
-                  </div>
-                )}
+            {diseaseBreakdown.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <p className="text-xs text-gray-500 font-medium mb-2">Detections by trigger</p>
+                <ResponsiveContainer width="100%" height={Math.max(120, diseaseBreakdown.length * 34)}>
+                  <BarChart data={diseaseBreakdown} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                    <XAxis type="number" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} width={130} />
+                    <Tooltip
+                      contentStyle={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 12 }}
+                      formatter={(value, name, props) => [value, props.payload.fullName]}
+                    />
+                    <Bar dataKey="count" name="Occurrences" radius={[0, 6, 6, 0]} animationDuration={600}>
+                      {diseaseBreakdown.map((d) => <Cell key={d.fullName} fill={d.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <SectionTitle icon={FileText} title="Detection & Treatment Report" sub={`${detections.length} entries`} />
+            {detections.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">No detections logged yet. Run a scan from Disease Detection to populate this report.</p>
+            ) : (
+              <div className="space-y-3">
+                {detections.map((r) => (
+                  <div key={r.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span className="text-xs font-mono text-gray-400">{r.time}</span>
+                        <span className="font-semibold text-gray-800 text-sm">{r.trigger}</span>
+                      </div>
+                      {r.status === "Executed" && <Badge tone="emerald" icon={CheckCircle2}>Executed</Badge>}
+                      {r.status === "Suppressed" && <Badge tone="amber" icon={Lock}>Suppressed</Badge>}
+                      {r.status === "Info" && <Badge tone="slate" icon={Info}>Clear</Badge>}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                      <div>
+                        <p className="text-xs text-gray-400">Detected</p>
+                        <p className="text-sm font-medium text-gray-800">{r.count || 0} indicator{(r.count || 0) === 1 ? "" : "s"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 flex items-center gap-1"><Timer size={11} /> Spray duration</p>
+                        <p className="text-sm font-medium text-gray-800">{r.durationSec ? `${r.durationSec}s` : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Confidence</p>
+                        <p className="text-sm font-medium text-gray-800">{r.confidence ? `${r.confidence}%` : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Est. recovery</p>
+                        <p className="text-sm font-medium text-gray-800">{r.recoveryDays || "—"}</p>
+                      </div>
+                    </div>
+                    {r.precautions && r.precautions.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-400 mb-1">Precautions</p>
+                        <p className="text-sm text-gray-600">{r.precautions.join(" · ")}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
     </div>
   );
 }
@@ -2140,22 +2424,19 @@ export default function CropGuardianAI() {
       return null;
     }
   });
-  const [view, setView] = useState("home");
-  const [telemetry, setTelemetry] = useState(seedTelemetry);
-  const [pumpOverride, setPumpOverride] = useState(false);
-  const [fanOverride, setFanOverride] = useState(false);
-  const [lastSprayAt, setLastSprayAt] = useState(0);
+  const [view, setView] = useState("dashboard");
+  const [telemetry, setTelemetry] = useState([]);
+  const [warehouseStatus, setWarehouseStatus] = useState(null);
+  const [overdoseLocked, setOverdoseLocked] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [serialConnected, setSerialConnected] = useState(true);
   const [sprayState, setSprayState] = useState("idle");
   const [clock, setClock] = useState(nowStr());
   const [tankLevel, setTankLevel] = useState(78);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [settings, setSettings] = useState(() => loadPersisted("cropguardian_settings", DEFAULT_SETTINGS));
   const [calibration, setCalibration] = useState(() => loadPersisted("cropguardian_calibration", DEFAULT_CALIBRATION));
-  const [history, setHistory] = useState(() => generateHistory(14));
-  const tempAlertedRef = useRef(false);
-  const humidityAlertedRef = useRef(false);
-  const soilLowAlertedRef = useRef(false);
   const logIdRef = useRef(1);
   const sprayIdRef = useRef(1);
 
@@ -2184,142 +2465,148 @@ export default function CropGuardianAI() {
     try { localStorage.setItem("cropguardian_calibration", JSON.stringify(next)); } catch {}
   }, []);
 
-  const overdoseLocked = lastSprayAt > 0 && Date.now() - lastSprayAt < settings.cooldownSec * 1000;
-
   useEffect(() => {
     const t = setInterval(() => setClock(nowStr()), 1000);
     return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    if (!overdoseLocked) {
-      setCooldownRemaining(0);
-      return;
-    }
-    const t = setInterval(() => {
-      const remaining = Math.ceil((settings.cooldownSec * 1000 - (Date.now() - lastSprayAt)) / 1000);
-      setCooldownRemaining(remaining > 0 ? remaining : 0);
-    }, 500);
-    return () => clearInterval(t);
-  }, [overdoseLocked, lastSprayAt, settings.cooldownSec]);
-
-  const bumpHistoryDetection = useCallback((diseaseName) => {
-    setHistory((prev) => {
-      const copy = [...prev];
-      const todayIdx = copy.length - 1;
-      const today = copy[todayIdx];
-      copy[todayIdx] = {
-        ...today,
-        detections: today.detections + 1,
-        byDisease: { ...today.byDisease, [diseaseName]: (today.byDisease[diseaseName] || 0) + 1 },
-      };
-      return copy;
-    });
+    const handler = (e) => {
+      if (!e.target.closest("[data-more-menu]")) setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const handleDetection = useCallback(
     (outcome) => {
-      if (!outcome.detected) {
-        pushLog("info", `Photo analysis complete — no pathogen detected (${outcome.confidence}% confidence)`);
-        pushSprayRow({ trigger: outcome.disease, action: "Scan clear, no action taken", count: 0, confidence: outcome.confidence, status: "Info" });
+      if (outcome.skipped) {
+        const reasonText = outcome.reason === "cooldown_active" ? "overdose cooldown active" : "pump already running";
+        pushLog("lock", `Spray skipped — ${reasonText}`);
+        pushSprayRow({ trigger: "CADRI Analysis", action: `Spray skipped (${reasonText})`, count: 0, confidence: null, status: "Suppressed" });
         setSprayState("idle");
         return;
       }
-      if (outcome.confidence < settings.confidenceThreshold) {
-        pushLog("info", `Possible ${outcome.disease} detected but below confidence threshold (${outcome.confidence}% < ${settings.confidenceThreshold}%) — flagged for review, no action taken`);
-        pushSprayRow({ trigger: outcome.disease, action: `Below confidence threshold (${settings.confidenceThreshold}%)`, count: outcome.count, confidence: outcome.confidence, status: "Info" });
+      if (outcome.decision === "sensors_unavailable") {
+        pushLog("info", `${outcome.disease} detected (${outcome.confidence}% confidence) — Arduino not connected, spray decision skipped`);
+        pushSprayRow({
+          trigger: outcome.disease, action: "Spray decision skipped (sensors unavailable)", count: outcome.count || 0,
+          confidence: outcome.confidence, status: "Info",
+        });
+        setSprayState("idle");
+        return;
+      }
+      if (!outcome.detected) {
+        const isAmbiguous = outcome.decision === "manual_inspection";
+        pushLog(
+          "info",
+          isAmbiguous
+            ? `${outcome.disease} detected but confidence too ambiguous (${outcome.confidence}%) — flagged for manual inspection`
+            : `Photo analysis complete — ${outcome.disease || "no pathogen"} detected (${outcome.confidence}% confidence), no action needed`
+        );
+        pushSprayRow({
+          trigger: outcome.disease, action: isAmbiguous ? "Flagged for manual inspection" : "Scan clear, no action taken",
+          count: outcome.count || 0, confidence: outcome.confidence, status: "Info",
+        });
         setSprayState("idle");
         return;
       }
       pushLog("detect", `AI classified ${outcome.disease} — ${outcome.confidence}% confidence (${outcome.count} indicator${outcome.count > 1 ? "s" : ""})`);
-      bumpHistoryDetection(outcome.disease);
-      const locked = lastSprayAt > 0 && Date.now() - lastSprayAt < settings.cooldownSec * 1000;
-      if (locked || tankLevel <= 2) {
-        pushLog("lock", locked ? "Overdose Prevention active — Pump suppressed" : "Tank empty — spray suppressed, refill required");
-        pushSprayRow({
-          trigger: outcome.disease, action: "Fungicide spray suppressed", count: outcome.count,
-          confidence: outcome.confidence, status: "Suppressed", recoveryDays: outcome.record?.recoveryDays,
-          precautions: outcome.record?.precautions,
-        });
-      } else {
-        setSprayState("fungicide");
-        setLastSprayAt(Date.now());
-        setTankLevel((lvl) => clamp(lvl - rand(4, 7), 0, 100));
-        pushLog("spray", `Auto-Response: Zone 1 pump tripped for ${settings.sprayDurationSec}-second fungicide spray`);
-        pushSprayRow({
-          trigger: outcome.disease, action: `Targeted fungicide spray (${settings.sprayDurationSec}s)`, count: outcome.count,
-          confidence: outcome.confidence, status: "Executed", durationSec: settings.sprayDurationSec,
-          recoveryDays: outcome.record?.recoveryDays, precautions: outcome.record?.precautions,
-        });
-        setTimeout(() => setSprayState("idle"), (settings.sprayDurationSec + 1) * 1000);
-      }
+      setSprayState("fungicide");
+      setTankLevel((lvl) => clamp(lvl - rand(4, 7), 0, 100));
+      pushLog("spray", `Auto-Response: CADRI triggered a ${outcome.decision.replace(/_/g, " ")} — ${outcome.reasoning || ""}`);
+      pushSprayRow({
+        trigger: outcome.disease, action: `${outcome.decision.replace(/_/g, " ")} executed`, count: outcome.count,
+        confidence: outcome.confidence, status: "Executed",
+        recoveryDays: outcome.record?.recoveryDays, precautions: outcome.record?.precautions,
+      });
+      setTimeout(() => setSprayState("idle"), (settings.sprayDurationSec + 1) * 1000);
     },
-    [lastSprayAt, pushLog, pushSprayRow, tankLevel, settings.confidenceThreshold, settings.cooldownSec, settings.sprayDurationSec, bumpHistoryDetection]
+    [pushLog, pushSprayRow, settings.sprayDurationSec]
   );
 
-  const soilTrueRef = useRef(63);
+  // QuickScanWidget (Dashboard) hands back either a navigation intent or the
+  // raw /analyze response — map the latter into handleDetection's outcome
+  // shape so both entry points share one decision/logging path.
+  const handleQuickScan = useCallback(
+    (payload) => {
+      if (payload === "navigate") {
+        setView("detection");
+        return;
+      }
+      if (payload === "navigate_storage") {
+        setView("storage");
+        return;
+      }
+      if (payload.skipped) {
+        handleDetection({ skipped: true, reason: payload.reason, cooldownSecondsRemaining: payload.cooldown_seconds_remaining });
+        return;
+      }
+      const leaf = payload.leaves?.[0];
+      if (!leaf) {
+        handleDetection({ detected: false, count: 0, disease: "No Leaf Detected", confidence: 0, record: null });
+        return;
+      }
+      handleDetection({
+        detected: leaf.decision !== "no_spray" && leaf.decision !== "manual_inspection",
+        count: payload.leaves.length,
+        disease: leaf.disease,
+        confidence: Math.round(leaf.confidence * 100),
+        cadri: leaf.cadri,
+        eil: leaf.eil,
+        decision: leaf.decision,
+        reasoning: leaf.reasoning,
+        record: matchDiseaseRecord(leaf.disease),
+      });
+    },
+    [handleDetection]
+  );
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setTelemetry((prev) => {
-        const last = prev[prev.length - 1];
-        soilTrueRef.current = clamp(soilTrueRef.current + rand(-3, 3), 42, 82);
-        const soilRaw = Math.round(clamp(ACTUAL_DRY_RAW - (soilTrueRef.current / 100) * (ACTUAL_DRY_RAW - ACTUAL_WET_RAW) + rand(-15, 15), 300, 900));
-        const soilMoisture = soilPercentFromRaw(soilRaw, calibration);
-        const temp = clamp(last.temp + rand(-0.4, 0.4), 8, 18);
-        const humidity = clamp(last.humidity + rand(-2, 2), 76, 94);
-        const co2 = clamp(last.co2 + rand(-18, 18), 390, 580);
-        const next = {
-          time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }),
-          soilRaw,
-          soilMoisture,
-          temp: Math.round(temp * 10) / 10,
-          humidity: Math.round(humidity),
-          co2: Math.round(co2),
-        };
+    let cancelled = false;
+    const poll = async () => {
+      const res = await apiFetch("/sensors");
+      if (cancelled) return;
+      if (!res || !res.ok) {
+        setSerialConnected(false);
+        return;
+      }
+      const data = res.data;
+      setSerialConnected(!!data.serial_connected);
+      setOverdoseLocked(!!data.cooldown_active);
+      setCooldownRemaining(Math.max(0, Math.round(data.cooldown_seconds_remaining || 0)));
+      const next = {
+        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }),
+        soilMoisture: data.soil_moisture,
+        soilRaw: null,
+        temp: data.temperature,
+        humidity: data.humidity,
+        co2: data.gas_level,
+      };
+      setTelemetry((prev) => [...prev.slice(-11), next]);
+    };
+    poll();
+    const t = setInterval(poll, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
 
-        if (next.soilMoisture < settings.soilThreshold) {
-          if (!pumpOverride && tankLevel > 2) {
-            setSprayState("irrigation");
-            setTankLevel((lvl) => clamp(lvl - rand(2, 4), 0, 100));
-            if (!soilLowAlertedRef.current) {
-              soilLowAlertedRef.current = true;
-              pushLog("water", `Soil moisture at ${next.soilMoisture}% (< ${settings.soilThreshold}% threshold) — plant needs water, Clean Water Irrigation cycle triggered`);
-            }
-            pushSprayRow({ trigger: "Low Soil Moisture", action: "Clean water irrigation cycle", count: 0, confidence: null, status: "Executed", durationSec: 4 });
-            setTimeout(() => setSprayState("idle"), 3000);
-          } else if (!soilLowAlertedRef.current) {
-            soilLowAlertedRef.current = true;
-            const reason = pumpOverride ? "manual override active" : "tank empty";
-            pushLog("water", `Soil moisture at ${next.soilMoisture}% (< ${settings.soilThreshold}% threshold) — plant needs water, but irrigation is suppressed (${reason})`);
-          }
-        } else {
-          soilLowAlertedRef.current = false;
-        }
-
-        if (next.temp > settings.tempThreshold) {
-          if (!tempAlertedRef.current) {
-            tempAlertedRef.current = true;
-            pushLog("alert", `Storage temperature ${next.temp}°C exceeded threshold (${settings.tempThreshold}°C)`);
-          }
-        } else {
-          tempAlertedRef.current = false;
-        }
-
-        if (next.humidity > settings.humidityThreshold) {
-          if (!humidityAlertedRef.current) {
-            humidityAlertedRef.current = true;
-            pushLog("alert", `Storage humidity ${next.humidity}% exceeded threshold (${settings.humidityThreshold}%)`);
-          }
-        } else {
-          humidityAlertedRef.current = false;
-        }
-
-        return [...prev.slice(1), next];
-      });
-    }, 5000);
-    return () => clearInterval(t);
-  }, [pumpOverride, pushLog, pushSprayRow, tankLevel, calibration, settings.soilThreshold, settings.tempThreshold, settings.humidityThreshold]);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const res = await apiFetch("/warehouse/status");
+      if (cancelled) return;
+      if (res && res.ok) setWarehouseStatus(res.data);
+    };
+    poll();
+    const t = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -2335,13 +2622,6 @@ export default function CropGuardianAI() {
     }, 9000);
     return () => clearInterval(t);
   }, [pushLog]);
-
-  useEffect(() => {
-    if (pumpOverride) pushLog("alert", "Manual Pump Override engaged — autonomous irrigation paused");
-  }, [pumpOverride]);
-  useEffect(() => {
-    if (fanOverride) pushLog("alert", "Manual Fan Override engaged — autonomous ventilation paused");
-  }, [fanOverride]);
 
   const handleLogin = (u) => {
     setUser(u);
@@ -2362,6 +2642,18 @@ export default function CropGuardianAI() {
   const alertCount = activityLog.filter((l) => l.type === "alert" || l.type === "lock").length + (overdoseLocked ? 1 : 0);
 
   const NAV_MAP = {
+    dashboard: () => (
+      <DashboardView
+        telemetry={telemetry}
+        overdoseLocked={overdoseLocked}
+        cooldownRemaining={cooldownRemaining}
+        activityLog={activityLog}
+        alertCount={alertCount}
+        onQuickScan={handleQuickScan}
+        serialConnected={serialConnected}
+        warehouseStatus={warehouseStatus}
+      />
+    ),
     home: () => <HomeView />,
     detection: () => (
       <DiseaseDetectionView
@@ -2372,13 +2664,13 @@ export default function CropGuardianAI() {
         tankLevel={tankLevel}
       />
     ),
-    storage: () => <StorageMonitoringView telemetry={telemetry} />,
+    storage: () => <StorageMonitoringView telemetry={telemetry} warehouseStatus={warehouseStatus} />,
     history: () => <HistoryView sprayLog={sprayLog} />,
     library: () => <DiseaseLibraryView />,
-    reports: () => <ReportsView sprayLog={sprayLog} history={history} />,
+    reports: () => <ReportsView sprayLog={sprayLog} />,
   };
 
-  const activeNav = NAV_ITEMS.find((n) => n.id === view);
+  const activeNav = [...NAV_ITEMS, ...MORE_ITEMS].find((n) => n.id === view);
   const initials = user.name.split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
 
   return (
@@ -2387,7 +2679,7 @@ export default function CropGuardianAI() {
 
       {/* Top Nav */}
       <header className="sticky top-0 z-20 bg-forest-900/95 backdrop-blur-md border-b border-forest-800 shadow-lg">
-        <div className="h-16 flex items-center justify-between px-6 gap-4">
+        <div className="h-20 flex items-center justify-between px-8 gap-4">
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="w-9 h-9 rounded-xl bg-leaf-400/20 ring-1 ring-leaf-400/40 flex items-center justify-center">
               <Sprout size={18} className="text-leaf-400" />
@@ -2398,31 +2690,67 @@ export default function CropGuardianAI() {
             </div>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-1 overflow-x-auto">
-            {NAV_ITEMS.map((item) => (
+          <div className="hidden lg:flex items-center gap-2">
+            <nav className="flex items-center gap-2 overflow-x-auto">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setView(item.id)}
+                  className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                    view === item.id ? "text-forest-900" : "text-forest-200 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  {view === item.id && (
+                    <motion.span
+                      layoutId="activeNavPill"
+                      className="absolute inset-0 rounded-full bg-leaf-400 shadow-md shadow-leaf-400/30"
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    />
+                  )}
+                  <item.icon size={14} className="relative z-10" />
+                  <span className="relative z-10">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* More dropdown — kept outside the overflow-x-auto nav above, since
+                setting only overflow-x forces the browser to compute overflow-y
+                as auto too, which clipped this absolutely-positioned menu to the
+                nav's own row instead of letting it float over the page. */}
+            <div className="relative shrink-0" data-more-menu>
               <button
-                key={item.id}
-                onClick={() => setView(item.id)}
-                className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                  view === item.id ? "text-forest-900" : "text-forest-200 hover:text-white hover:bg-white/10"
+                onClick={() => setMoreOpen((o) => !o)}
+                className={`relative flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
+                  MORE_ITEMS.some((i) => i.id === view)
+                    ? "bg-leaf-400 text-forest-900"
+                    : "text-forest-200 hover:text-white hover:bg-white/10"
                 }`}
               >
-                {view === item.id && (
-                  <motion.span
-                    layoutId="activeNavPill"
-                    className="absolute inset-0 rounded-full bg-leaf-400 shadow-md shadow-leaf-400/30"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  />
-                )}
-                <item.icon size={14} className="relative z-10" />
-                <span className="relative z-10">{item.label}</span>
+                <ChevronDown size={14} />
+                <span>More</span>
               </button>
-            ))}
-          </nav>
+              {moreOpen && (
+                <div className="absolute top-full mt-2 left-0 w-48 bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden z-30">
+                  {MORE_ITEMS.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => { setView(item.id); setMoreOpen(false); }}
+                      className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors hover:bg-forest-50 ${
+                        view === item.id ? "text-forest-700 bg-forest-50" : "text-gray-700"
+                      }`}
+                    >
+                      <item.icon size={14} className="text-forest-500" />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <div className="hidden xl:flex items-center gap-1.5 text-xs text-leaf-300 font-mono bg-white/5 border border-white/10 rounded-full px-3 py-1.5">
-              <StatusDot online={true} /> System Nominal
+              <StatusDot online={serialConnected} /> {serialConnected ? "System Nominal" : "Arduino Offline"}
             </div>
             <NotificationBell
               activityLog={activityLog}
@@ -2461,7 +2789,7 @@ export default function CropGuardianAI() {
 
         {/* Mobile/tablet nav row */}
         <nav className="lg:hidden flex items-center gap-1 px-4 pb-3 overflow-x-auto">
-          {NAV_ITEMS.map((item) => (
+          {[...NAV_ITEMS, ...MORE_ITEMS].map((item) => (
             <button
               key={item.id}
               onClick={() => setView(item.id)}
@@ -2474,10 +2802,17 @@ export default function CropGuardianAI() {
             </button>
           ))}
         </nav>
+
+        {!serialConnected && (
+          <div className="bg-rose-600 text-white text-xs font-medium px-6 py-2 flex items-center justify-center gap-2">
+            <AlertTriangle size={14} />
+            Arduino not connected — sensor readings and relay commands are unavailable.
+          </div>
+        )}
       </header>
 
       {/* Page title bar */}
-      {view !== "home" && (
+      {view !== "home" && view !== "dashboard" && (
         <div className="bg-white/70 backdrop-blur-sm border-b border-forest-100 px-6 py-4">
           <h1 className="font-display font-bold text-forest-900 text-xl">{activeNav.label}</h1>
           <p className="text-xs text-forest-500">Precision crop care, powered by AI · {clock}</p>

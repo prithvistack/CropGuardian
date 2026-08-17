@@ -38,9 +38,14 @@ def compute_gradcam(
     then ReLU and normalize. Returns a heatmap at the conv layer's native
     (low) spatial resolution, values in [0, 1].
     """
+    # model.outputs[0] rather than model.output -- on this model, .output
+    # is itself a one-element list (a quirk of how it was saved/loaded under
+    # Keras 3), so using it directly here nested the output structure one
+    # level too deep and made `predictions` a list instead of a tensor,
+    # breaking the [:, class_index] indexing below.
     grad_model = tf.keras.models.Model(
         inputs=model.inputs,
-        outputs=[model.get_layer(last_conv_layer_name).output, model.output],
+        outputs=[model.get_layer(last_conv_layer_name).output, model.outputs[0]],
     )
     with tf.GradientTape() as tape:
         conv_output, predictions = grad_model(input_batch, training=False)
