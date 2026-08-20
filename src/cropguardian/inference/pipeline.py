@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from PIL import Image
 
 from .detector import LeafDetector
-from .gradcam import DEFAULT_LAST_CONV_LAYER, DEFAULT_SV_THRESHOLD, run_gradcam
+from .gradcam import DEFAULT_SV_THRESHOLD, run_gradcam
 from .predictor import IMG_SIZE, Predictor
 
 
@@ -32,12 +32,10 @@ class DiseasePipeline:
         self,
         detector: LeafDetector | None = None,
         predictor: Predictor | None = None,
-        last_conv_layer_name: str = DEFAULT_LAST_CONV_LAYER,
         severity_threshold: float = DEFAULT_SV_THRESHOLD,
     ):
         self.detector = detector or LeafDetector()
         self.predictor = predictor or Predictor()
-        self.last_conv_layer_name = last_conv_layer_name
         self.severity_threshold = severity_threshold
 
     def run(self, image: Image.Image) -> list[LeafResult]:
@@ -46,11 +44,10 @@ class DiseasePipeline:
             crop = self.detector.crop(image, detection)
             prediction = self.predictor.predict(crop)
             gradcam = run_gradcam(
-                model=self.predictor.model,
-                input_batch=prediction.input_batch,
+                conv_output=prediction.conv_output,
                 class_index=prediction.class_index,
                 output_size=(IMG_SIZE, IMG_SIZE),
-                last_conv_layer_name=self.last_conv_layer_name,
+                head=self.predictor.head,
                 threshold=self.severity_threshold,
             )
             results.append(
