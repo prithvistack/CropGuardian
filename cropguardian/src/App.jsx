@@ -7,10 +7,10 @@ import {
 import {
   LayoutDashboard, Camera, Warehouse, History, BookOpen, FileText, Settings as SettingsIcon,
   Leaf, Cpu, Droplet, Wind, Thermometer, Activity, AlertTriangle, CheckCircle2, Lock,
-  ChevronRight, Download, Radio, ShieldCheck, Info, Sprout, Bug,
+  ChevronRight, ChevronLeft, Download, Radio, ShieldCheck, Info, Sprout, Bug,
   Flame, CloudRain, Beaker, UploadCloud, ImageUp, Play, Save, Zap, SlidersHorizontal,
   MessageCircle, Send, LogOut, User, RefreshCw, Calendar, Timer, Droplets, Bell, X,
-  Users, MapPin, Target, Clock, ScanLine, ChevronDown, Satellite, BrainCircuit,
+  Users, Target, ScanLine, ChevronDown,
 } from "lucide-react";
 import fieldBg from "./assets/field-bg.jpg";
 import loginBgVideo from "./assets/video/login-bg.mp4";
@@ -34,6 +34,15 @@ const MORE_ITEMS = [
   { id: "reports", label: "Reports", icon: FileText },
 ];
 
+const PAGE_META = {
+  detection: { title: "Disease Detection", sub: "Upload a leaf photo — our AI identifies the pathogen and recommends action." },
+  storage: { title: "Storage Monitoring", sub: "Live environmental tracking to protect your harvest after the field." },
+  history: { title: "Spraying History", sub: "Every spray event logged — executed, suppressed, and flagged actions." },
+  library: { title: "Disease Library", sub: "Know your enemy — symptoms, conditions, and treatment for every tomato pathogen." },
+  reports: { title: "Reports", sub: "Field operations data — detections, spray events, and trends over time." },
+  home: { title: "About CropGuardian AI", sub: "The story, the technology, and the mission behind the platform." },
+};
+
 const HARDWARE = [
   { id: "controller", name: "Controller", detail: "Arduino UNO Q", icon: Cpu },
   { id: "dht22", name: "DHT22 Sensor", detail: "Temperature / Humidity", icon: Thermometer },
@@ -46,6 +55,7 @@ const DISEASES = [
   {
     name: "Late Blight",
     sci: "Phytophthora infestans",
+    image: "https://images.unsplash.com/photo-1586771107445-d3ca888129ff?w=800&q=80",
     severity: "Critical",
     symptoms: "Water-soaked grey-green lesions on leaves that rapidly turn brown and papery, often with pale sporulation on the underside in humid conditions.",
     conditions: "Cool nights (10-20°C), high humidity above 90%, prolonged leaf wetness.",
@@ -62,6 +72,7 @@ const DISEASES = [
   {
     name: "Early Blight",
     sci: "Alternaria solani",
+    image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&q=80",
     severity: "Moderate",
     symptoms: "Concentric dark brown rings forming a target pattern on older, lower leaves first.",
     conditions: "Warm temperatures (24-29°C), alternating wet and dry periods, plant stress.",
@@ -78,6 +89,7 @@ const DISEASES = [
   {
     name: "Septoria Leaf Spot",
     sci: "Septoria lycopersici",
+    image: "https://images.unsplash.com/photo-1592841200221-a6898f307baa?w=800&q=80",
     severity: "Moderate",
     symptoms: "Small circular spots with dark margins and light grey centers, dense on lower leaves.",
     conditions: "Extended leaf wetness, temperatures 20-25°C, dense overcrowded canopy.",
@@ -94,6 +106,7 @@ const DISEASES = [
   {
     name: "Bacterial Spot",
     sci: "Xanthomonas spp.",
+    image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80",
     severity: "High",
     symptoms: "Small, dark, greasy-looking lesions on leaves and fruit with yellow halos.",
     conditions: "Warm, wet, and humid weather; spreads readily via splashing water.",
@@ -110,6 +123,7 @@ const DISEASES = [
   {
     name: "Leaf Mold",
     sci: "Passalora fulva",
+    image: "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=800&q=80",
     severity: "Low",
     symptoms: "Pale yellow patches on upper leaf surface with olive-green velvety mold beneath.",
     conditions: "High humidity above 85% and poor greenhouse ventilation.",
@@ -126,6 +140,7 @@ const DISEASES = [
   {
     name: "Tomato Yellow Leaf Curl Virus",
     sci: "TYLCV (Begomovirus)",
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
     severity: "Critical",
     symptoms: "Upward leaf curling, yellowing between veins, and pronounced stunted growth.",
     conditions: "Transmitted by whitefly vectors; spreads fastest in warm, dry seasons.",
@@ -142,6 +157,7 @@ const DISEASES = [
   {
     name: "Spider Mites (Two-spotted)",
     sci: "Tetranychus urticae",
+    image: "https://images.unsplash.com/photo-1622383563227-04401ab4e5ea?w=800&q=80",
     severity: "Moderate",
     symptoms: "Tiny yellow or white speckles on upper leaf surface, fine webbing on undersides, leaves eventually bronze and drop.",
     conditions: "Hot, dry conditions above 27°C with low humidity below 40%.",
@@ -158,6 +174,7 @@ const DISEASES = [
   {
     name: "Target Spot",
     sci: "Corynespora cassiicola",
+    image: "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=800&q=80",
     severity: "Moderate",
     symptoms: "Brown circular lesions with concentric rings and yellow halos on leaves, stems, and fruit.",
     conditions: "Warm temperatures 24–30°C, high humidity, prolonged leaf wetness.",
@@ -174,6 +191,7 @@ const DISEASES = [
   {
     name: "Tomato Mosaic Virus",
     sci: "ToMV (Tobamovirus)",
+    image: "https://images.unsplash.com/photo-1592921870789-04563d55041c?w=800&q=80",
     severity: "High",
     symptoms: "Mottled light and dark green mosaic pattern on leaves, leaf distortion, stunted growth.",
     conditions: "Spreads through contact, contaminated tools, and infected seed — not insect-vectored.",
@@ -190,6 +208,7 @@ const DISEASES = [
   {
     name: "Healthy",
     sci: "No pathogen detected",
+    image: "https://images.unsplash.com/photo-1592838064575-70ed626d3a0e?w=800&q=80",
     severity: "Low",
     symptoms: "No disease symptoms. Leaf tissue is uniformly green with no lesions, spots, or discoloration.",
     conditions: "Healthy plants thrive in balanced temperature, humidity, and soil moisture conditions.",
@@ -483,11 +502,21 @@ const NOTIF_STYLE = {
   system: { icon: Radio, dot: "bg-gray-400", chip: "bg-gray-100 text-gray-500" },
 };
 
-function NotificationBell({ activityLog, unreadCount, open, onToggle }) {
+function NotificationBell({ activityLog, unreadCount, open, onToggle, onClose }) {
   const important = activityLog.slice(0, 20);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open, onClose]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={onToggle}
         className="relative w-9 h-9 rounded-full bg-white/70 border border-white/80 hover:bg-white flex items-center justify-center transition-colors shadow-sm"
@@ -639,13 +668,28 @@ function AnimatedGrassField({ opacity = 0.5, height = 140 }) {
 }
 
 const LANDING_STATS = [
-  { value: "10,000+", label: "Leaves Analyzed", icon: ScanLine },
-  { value: "9+", label: "Tomato Diseases Detected", icon: Bug },
-  { value: "250+", label: "Villages Covered", icon: MapPin },
-  { value: "95%+", label: "Model Classification Accuracy", icon: Target },
-  { value: "1,200+", label: "Farmers & Agronomists Supported", icon: Users },
-  { value: "24/7", label: "Real-time Instant Diagnosis", icon: Clock },
+  { value: "10000", display: "10,000+", label: "Leaves Analyzed", icon: ScanLine },
+  { value: "10", display: "10+", label: "Tomato Diseases Detected", icon: Bug },
+  { value: "98", display: "98%+", label: "Model Classification Accuracy", icon: Target },
 ];
+
+// value is the clean animatable number ("10000"); display is how it should
+// read once formatted ("10,000+") -- the suffix is whatever's left after
+// stripping display's own leading digits/commas, so it stays correct however
+// display is formatted (+, %, %+, ...).
+function AnimatedStatValue({ value, display }) {
+  const [triggered, setTriggered] = useState(false);
+  const target = parseFloat(value);
+  const suffix = display.replace(/^[\d,]+/, "");
+  const animated = useCountUp(triggered ? target : 0);
+
+  return (
+    <motion.span onViewportEnter={() => setTriggered(true)} viewport={{ once: true, amount: 0.6 }}>
+      {animated.toLocaleString("en-IN")}
+      {suffix}
+    </motion.span>
+  );
+}
 
 function HomeView() {
   return (
@@ -660,7 +704,7 @@ function HomeView() {
           <div className="max-w-2xl">
             <div className="w-10 h-1 bg-leaf-400 mb-6 rounded-full" />
             <h1 className="font-display font-extrabold text-white text-4xl md:text-5xl leading-tight mb-5">
-              India's AI-Powered Tomato Crop Health &amp; Disease Detection Platform
+              AI-Powered Tomato Crop Health &amp; Disease Detection Platform
             </h1>
             <p className="text-forest-100/90 text-base md:text-lg max-w-xl">
               Autonomous field robotics, real-time leaf disease detection, and precision spraying — built to protect every tomato plant in the field.
@@ -670,13 +714,13 @@ function HomeView() {
       </section>
 
       {/* Stats */}
-      <section className="py-20 px-6 bg-white">
+      <section className="py-20 px-6 bg-gradient-to-br from-forest-50 to-leaf-50">
         <div className="max-w-7xl mx-auto">
           <h2 className="font-display font-bold text-3xl text-center mb-2 text-forest-950">
             Welcome to <span className="text-forest-600">CropGuardian AI</span>
           </h2>
-          <p className="text-center text-gray-500 mb-14">Precision agriculture, built for India's tomato farmers</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+          <p className="text-center text-gray-600 mb-14">Precision agriculture, built for India's tomato farmers</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 max-w-3xl mx-auto gap-8">
             {LANDING_STATS.map((s, i) => (
               <motion.div
                 key={s.label}
@@ -685,13 +729,13 @@ function HomeView() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
                 whileHover={{ y: -6 }}
-                className="flex flex-col items-center text-center"
+                className="flex flex-col items-center text-center bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl px-6 py-8 shadow-lg"
               >
-                <div className="w-16 h-16 rounded-full bg-forest-600 flex items-center justify-center mb-4 shadow-lg shadow-forest-600/20">
-                  <s.icon size={26} className="text-white" />
+                <div className="w-14 h-14 rounded-full bg-white/30 flex items-center justify-center mb-4 shadow-md">
+                  <s.icon size={24} className="text-forest-800" />
                 </div>
-                <p className="font-display font-extrabold text-3xl text-forest-700 mb-1">{s.value}</p>
-                <p className="text-sm text-gray-600 font-medium">{s.label}</p>
+                <p className="font-display font-extrabold text-4xl text-forest-900 mb-1"><AnimatedStatValue value={s.value} display={s.display} /></p>
+                <p className="text-sm text-forest-800 font-medium">{s.label}</p>
               </motion.div>
             ))}
           </div>
@@ -699,47 +743,63 @@ function HomeView() {
       </section>
 
       {/* Split: About */}
-      <section className="py-20 px-6 bg-forest-50">
+      <section className="py-20 px-6 bg-white">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div>
             <p className="text-xs font-bold text-leaf-700 tracking-widest uppercase mb-3">About the platform</p>
-            <h3 className="font-display font-bold text-3xl text-forest-950 mb-5">Deep learning built for the tomato leaf</h3>
+            <h3 className="font-display font-bold text-3xl text-forest-950 mb-5">Built for the tomato farmer, powered by deep learning</h3>
             <p className="text-gray-600 leading-relaxed mb-4">
-              CropGuardian AI pairs a field-ready camera rover with a trained disease-classification model so pathogens are caught within hours of symptoms appearing, not days.
+              CropGuardian AI combines a ground-level camera rover with a two-stage detection pipeline — YOLOv8 for leaf detection, EfficientNetV2 for disease classification — to catch pathogens within hours of symptoms appearing, not days.
             </p>
             <p className="text-gray-600 leading-relaxed">
-              Every detection is logged, every spray is dosage-limited, and every reading — soil, climate, and visual — feeds back into a single dashboard built for real field decisions.
+              Every detection is explained through Grad-CAM visual evidence, not just a label.
             </p>
           </div>
           <div className="relative rounded-2xl overflow-hidden shadow-xl aspect-[4/3] bg-forest-900 flex items-center justify-center">
-            <BrainCircuit size={120} className="text-leaf-400/40" />
+            <div className="w-full h-full overflow-hidden rounded-2xl">
+              <motion.img
+                src="https://images.unsplash.com/photo-1592841200221-a6898f307baa?w=800&q=80"
+                alt="Fresh tomatoes"
+                className="w-full h-full object-cover"
+                whileHover={{ scale: 1.08 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            </div>
           </div>
         </div>
       </section>
 
       {/* Split: Infra */}
-      <section className="py-20 px-6 bg-white">
+      <section className="py-20 px-6 bg-forest-50">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className="relative rounded-2xl overflow-hidden shadow-xl aspect-[4/3] bg-forest-900 flex items-center justify-center order-2 md:order-1">
-            <Satellite size={120} className="text-leaf-400/40" />
+            <div className="w-full h-full overflow-hidden rounded-2xl">
+              <motion.img
+                src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&q=80"
+                alt="Agricultural technology"
+                className="w-full h-full object-cover"
+                whileHover={{ scale: 1.08 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            </div>
           </div>
           <div className="order-1 md:order-2">
             <p className="text-xs font-bold text-leaf-700 tracking-widest uppercase mb-3">Infrastructure &amp; AI tech</p>
-            <h3 className="font-display font-bold text-3xl text-forest-950 mb-5">CNN-based detection, field-tested hardware</h3>
+            <h3 className="font-display font-bold text-3xl text-forest-950 mb-5">From image to action — a closed loop no other system closes</h3>
             <p className="text-gray-600 leading-relaxed mb-4">
-              An onboard camera rover streams leaf imagery to a trained classification model, mapping detections back to precise field zones village by village.
+              Our CADRI engine fuses visual severity scores with live environmental sensor data — temperature, humidity, soil moisture, air quality — to make economically grounded spray decisions using the Economic Injury Level framework.
             </p>
             <p className="text-gray-600 leading-relaxed">
-              From autonomous spraying to cold-storage climate tracking, the same intelligence layer runs the whole operation end to end.
+              The result: precision pesticide delivery, not blanket spraying.
             </p>
           </div>
         </div>
       </section>
 
       {/* Pillars */}
-      <section className="py-20 px-6 bg-leaf-400">
+      <section className="py-20 px-6 bg-gradient-to-br from-forest-900 via-forest-800 to-forest-950">
         <div className="max-w-7xl mx-auto">
-          <h3 className="font-display font-bold text-3xl text-center text-forest-950 mb-14">Pillars of CropGuardian AI</h3>
+          <h3 className="font-display font-bold text-3xl text-center text-white mb-14">Pillars of CropGuardian AI</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
               { icon: ScanLine, title: "Real-time detection", desc: "Leaf-level diagnosis within hours of symptoms." },
@@ -748,32 +808,35 @@ function HomeView() {
               { icon: Users, title: "Farmer-first design", desc: "Built around real field workflows, not dashboards for their own sake." },
             ].map((p) => (
               <div key={p.title} className="text-center">
-                <div className="w-16 h-16 rounded-full border-2 border-forest-900/30 flex items-center justify-center mx-auto mb-4">
-                  <p.icon size={26} className="text-forest-900" />
+                <div className="w-16 h-16 rounded-full border-2 border-white/20 flex items-center justify-center mx-auto mb-4">
+                  <p.icon size={26} className="text-leaf-400" />
                 </div>
-                <p className="font-display font-bold text-forest-950 mb-1.5">{p.title}</p>
-                <p className="text-xs text-forest-900/70 leading-relaxed">{p.desc}</p>
+                <p className="font-display font-bold text-white mb-1.5">{p.title}</p>
+                <p className="text-xs text-forest-200/80 leading-relaxed">{p.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      <section className="py-10 px-6 bg-forest-950 text-center rounded-t-none">
-        <p className="text-forest-400 text-xs">Grown with care, guarded by AI 🌱</p>
-      </section>
     </div>
   );
 }
 
+const CROPGUARDIAN_PASSWORD = "cropguardian2025";
+
 function LoginScreen({ onLogin }) {
   const [name, setName] = useState("");
-  const [role, setRole] = useState("Farm Operator");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const submit = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onLogin({ name: name.trim(), role });
+    if (password !== CROPGUARDIAN_PASSWORD) {
+      setError("Incorrect password");
+      return;
+    }
+    onLogin({ name: name.trim() });
   };
 
   return (
@@ -821,17 +884,15 @@ function LoginScreen({ onLogin }) {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1.5 block">Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
+                <label className="text-xs font-medium text-gray-500 mb-1.5 block">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  placeholder="Enter password"
                   className="w-full bg-white border border-earth-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-gold-400"
-                >
-                  <option>Farm Operator</option>
-                  <option>Agronomist</option>
-                  <option>Farm Owner</option>
-                  <option>Field Technician</option>
-                </select>
+                />
+                {error && <p className="text-xs text-rose-600 mt-1.5">{error}</p>}
               </div>
               <motion.button
                 type="submit"
@@ -1750,7 +1811,7 @@ function PlantLeaf({ x, y, side, color, name, onClick, delay }) {
   );
 }
 
-function DiseaseDetailModal({ disease, onClose }) {
+function DiseaseDetailModal({ disease, onClose, onNext, onPrev }) {
   const severityTone = { Critical: "red", High: "amber", Moderate: "amber", Low: "emerald" };
   const stageColors = ["bg-lime-400", "bg-amber-400", "bg-orange-500", "bg-rose-600"];
   return (
@@ -1761,7 +1822,22 @@ function DiseaseDetailModal({ disease, onClose }) {
       exit={{ opacity: 0 }}
       onClick={onClose}
     >
+      <button
+        onClick={(e) => { e.stopPropagation(); onPrev(); }}
+        aria-label="Previous disease"
+        className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white items-center justify-center transition-colors backdrop-blur-sm"
+      >
+        <ChevronLeft size={20} />
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onNext(); }}
+        aria-label="Next disease"
+        className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white items-center justify-center transition-colors backdrop-blur-sm"
+      >
+        <ChevronRight size={20} />
+      </button>
       <motion.div
+        key={disease.name}
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 20 }}
@@ -1778,6 +1854,16 @@ function DiseaseDetailModal({ disease, onClose }) {
             <Badge tone={severityTone[disease.severity]} icon={AlertTriangle}>{disease.severity}</Badge>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={18} /></button>
           </div>
+        </div>
+
+        <div className="w-full h-52 overflow-hidden">
+          <motion.img
+            src={disease.image}
+            alt={disease.name}
+            className="w-full h-full object-cover"
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
         </div>
 
         <div className="p-6 space-y-6">
@@ -1836,15 +1922,30 @@ function DiseaseDetailModal({ disease, onClose }) {
 }
 
 function DiseaseLibraryView() {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(null); // index into DISEASES, or null when closed
   const severityColor = { Critical: "#e11d48", High: "#f59e0b", Moderate: "#f59e0b", Low: "#4e9f3d" };
+
+  useEffect(() => {
+    if (selected === null) return;
+    const handler = (e) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        setSelected((i) => (i + 1) % DISEASES.length);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        setSelected((i) => (i - 1 + DISEASES.length) % DISEASES.length);
+      } else if (e.key === "Escape") {
+        setSelected(null);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [selected]);
 
   return (
     <div className="relative -m-6 overflow-hidden">
       <div className="fixed inset-0 -z-10 bg-gradient-to-b from-sky-50 via-white to-lime-50" />
       <div className="px-6 pt-6 pb-2 text-center">
         <h2 className="font-display text-xl font-bold text-forest-900">Tap a leaf to learn about that disease</h2>
-        <p className="text-sm text-gray-500">Six common tomato pathogens, mapped onto the plant</p>
+        <p className="text-sm text-gray-500">Ten tomato pathogens and conditions, mapped onto the plant</p>
       </div>
       <div className="w-full flex justify-center">
         <svg viewBox="0 0 600 800" className="w-full max-w-2xl h-[calc(100vh-14rem)] min-h-[520px]">
@@ -1862,7 +1963,7 @@ function DiseaseLibraryView() {
               color={severityColor[DISEASES[i].severity]}
               name={DISEASES[i].name}
               delay={i * 0.12}
-              onClick={() => setSelected(DISEASES[i])}
+              onClick={() => setSelected(i)}
             />
           ))}
           {/* top sprout */}
@@ -1871,7 +1972,14 @@ function DiseaseLibraryView() {
       </div>
 
       <AnimatePresence>
-        {selected && <DiseaseDetailModal disease={selected} onClose={() => setSelected(null)} />}
+        {selected !== null && (
+          <DiseaseDetailModal
+            disease={DISEASES[selected]}
+            onClose={() => setSelected(null)}
+            onNext={() => setSelected((i) => (i + 1) % DISEASES.length)}
+            onPrev={() => setSelected((i) => (i - 1 + DISEASES.length) % DISEASES.length)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
@@ -2431,7 +2539,6 @@ export default function CropGuardianAI() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [serialConnected, setSerialConnected] = useState(true);
   const [sprayState, setSprayState] = useState("idle");
-  const [clock, setClock] = useState(nowStr());
   const [tankLevel, setTankLevel] = useState(78);
   const [profileOpen, setProfileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -2439,6 +2546,7 @@ export default function CropGuardianAI() {
   const [calibration, setCalibration] = useState(() => loadPersisted("cropguardian_calibration", DEFAULT_CALIBRATION));
   const logIdRef = useRef(1);
   const sprayIdRef = useRef(1);
+  const profileRef = useRef(null);
 
   const [activityLog, setActivityLog] = useState([
     { id: 0, time: nowStr(), type: "system", message: "CropGuardian AI initialized — all sensor nodes reporting" },
@@ -2466,17 +2574,21 @@ export default function CropGuardianAI() {
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => setClock(nowStr()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
     const handler = (e) => {
       if (!e.target.closest("[data-more-menu]")) setMoreOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handler = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [profileOpen]);
 
   const handleDetection = useCallback(
     (outcome) => {
@@ -2670,7 +2782,6 @@ export default function CropGuardianAI() {
     reports: () => <ReportsView sprayLog={sprayLog} />,
   };
 
-  const activeNav = [...NAV_ITEMS, ...MORE_ITEMS].find((n) => n.id === view);
   const initials = user.name.split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
 
   return (
@@ -2680,15 +2791,12 @@ export default function CropGuardianAI() {
       {/* Top Nav */}
       <header className="sticky top-0 z-20 bg-forest-900/95 backdrop-blur-md border-b border-forest-800 shadow-lg">
         <div className="h-20 flex items-center justify-between px-8 gap-4">
-          <div className="flex items-center gap-2.5 shrink-0">
+          <button onClick={() => setView("dashboard")} className="flex items-center gap-2.5 shrink-0 hover:opacity-80 transition-opacity">
             <div className="w-9 h-9 rounded-xl bg-leaf-400/20 ring-1 ring-leaf-400/40 flex items-center justify-center">
               <Sprout size={18} className="text-leaf-400" />
             </div>
-            <div>
-              <p className="font-display font-bold text-white text-base leading-tight tracking-tight">CropGuardian AI</p>
-              <p className="text-[10px] text-forest-300 leading-tight tracking-wide font-medium">CROP INTELLIGENCE ECOSYSTEM</p>
-            </div>
-          </div>
+            <p className="font-display font-bold text-white text-base leading-tight tracking-tight">CropGuardian AI</p>
+          </button>
 
           <div className="hidden lg:flex items-center gap-2">
             <nav className="flex items-center gap-2 overflow-x-auto">
@@ -2758,12 +2866,17 @@ export default function CropGuardianAI() {
               open={notificationsOpen}
               onToggle={() => {
                 setNotificationsOpen((o) => !o);
+                setProfileOpen(false);
                 if (!notificationsOpen) setLastSeenLogId(activityLog[0]?.id ?? 0);
               }}
+              onClose={() => setNotificationsOpen(false)}
             />
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
-                onClick={() => setProfileOpen((o) => !o)}
+                onClick={() => {
+                  setProfileOpen((o) => !o);
+                  setNotificationsOpen(false);
+                }}
                 className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
               >
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-leaf-400 to-forest-400 flex items-center justify-center text-forest-900 text-[11px] font-bold shrink-0">{initials}</div>
@@ -2773,7 +2886,6 @@ export default function CropGuardianAI() {
                 <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden z-30">
                   <div className="px-3 py-2.5 border-b border-gray-100">
                     <p className="text-xs font-semibold text-slate-700 truncate">{user.name}</p>
-                    <p className="text-[10px] text-slate-400">{user.role}</p>
                   </div>
                   <button
                     onClick={handleLogout}
@@ -2812,10 +2924,10 @@ export default function CropGuardianAI() {
       </header>
 
       {/* Page title bar */}
-      {view !== "home" && view !== "dashboard" && (
+      {view !== "dashboard" && PAGE_META[view] && (
         <div className="bg-white/70 backdrop-blur-sm border-b border-forest-100 px-6 py-4">
-          <h1 className="font-display font-bold text-forest-900 text-xl">{activeNav.label}</h1>
-          <p className="text-xs text-forest-500">Precision crop care, powered by AI · {clock}</p>
+          <h1 className="font-display font-bold text-forest-900 text-xl">{PAGE_META[view].title}</h1>
+          <p className="text-xs text-forest-500">{PAGE_META[view].sub}</p>
         </div>
       )}
 

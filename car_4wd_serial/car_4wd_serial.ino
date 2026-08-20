@@ -1,17 +1,17 @@
 // ============================================================
 //  4WD Car with L293D Motor Driver — Serial Monitor Control
-//  Arduino Uno
+//  Arduino Uno Q
 //
 //  PIN LAYOUT (verified from your wiring diagram):
 //  --- RIGHT MOTORS (C & D terminals on L293D) ---
-//  A1  → D2   (direction pin A)
-//  A2  → D3   (direction pin B)
-//  ENA → D9   (PWM speed, right side)
+//  A1  → D2    orange  (direction pin A)
+//  A2  → D4    brown   (direction pin B)
+//  ENA → D11   red     (PWM speed, right side)
 //
 //  --- LEFT MOTORS (A & B terminals on L293D) ---
-//  B1  → D4   (direction pin A)
-//  B2  → D5   (direction pin B)
-//  ENB → D6   (PWM speed, left side)
+//  B1  → D5    dark blue (direction pin A)
+//  B2  → D6    white     (direction pin B)
+//  ENB → D10   grey      (PWM speed, left side)
 //
 //  Serial Commands (open Serial Monitor at 9600 baud):
 //    F → Forward
@@ -25,14 +25,14 @@
 // ============================================================
 
 // ---------- RIGHT motors ----------
-const int RIGHT_IN1 = 2;   // A1 on L293D
-const int RIGHT_IN2 = 3;   // A2 on L293D
-const int RIGHT_EN  = 9;   // ENA on L293D (PWM ~ pin)
+const int RIGHT_IN1 = 2;    // A1 on L293D (orange)
+const int RIGHT_IN2 = 4;    // A2 on L293D (brown)
+const int RIGHT_EN  = 11;   // ENA on L293D (red, PWM ~ pin)
 
 // ---------- LEFT motors ----------
-const int LEFT_IN1  = 4;   // B1 on L293D
-const int LEFT_IN2  = 5;   // B2 on L293D
-const int LEFT_EN   = 6;   // ENB on L293D (PWM ~ pin)
+const int LEFT_IN1  = 5;    // B1 on L293D (dark blue)
+const int LEFT_IN2  = 6;    // B2 on L293D (white)
+const int LEFT_EN   = 10;   // ENB on L293D (grey, PWM ~ pin)
 
 // ---------- Speed ----------
 int motorSpeed        = 255;
