@@ -3,7 +3,12 @@
 // backend that's temporarily down or unreachable degrades to `null` instead
 // of throwing and crashing a setInterval loop.
 
-export const API_BASE_URL = "http://localhost:8000";
+// Empty string == same origin as whatever served this page. The backend now
+// serves this built frontend directly (see api/main.py's StaticFiles mount),
+// so the dashboard and the API it calls always share one host:port -- no
+// hardcoded IP to go stale every time the board changes networks, which is
+// exactly the class of bug that kept breaking this before.
+export const API_BASE_URL = "";
 
 export async function apiFetch(path, options = {}) {
   try {

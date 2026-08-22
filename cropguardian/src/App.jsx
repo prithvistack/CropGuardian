@@ -10,12 +10,12 @@ import {
   ChevronRight, ChevronLeft, Download, Radio, ShieldCheck, Info, Sprout, Bug,
   Flame, CloudRain, Beaker, UploadCloud, ImageUp, Play, Save, Zap, SlidersHorizontal,
   MessageCircle, Send, LogOut, User, RefreshCw, Calendar, Timer, Droplets, Bell, X,
-  Users, Target, ScanLine, ChevronDown,
+  Users, Target, ScanLine, ChevronDown, ChevronUp, Gamepad2, Square,
 } from "lucide-react";
 import fieldBg from "./assets/field-bg.jpg";
 import loginBgVideo from "./assets/video/login-bg.mp4";
 import homeHeroVideo from "./assets/video/home-hero.mp4";
-import { apiFetch } from "./api";
+import { apiFetch, API_BASE_URL } from "./api";
 
 /* ---------------------------------------------------------------------- */
 /*  Reference data                                                         */
@@ -32,6 +32,8 @@ const NAV_ITEMS = [
 const MORE_ITEMS = [
   { id: "library", label: "Disease Library", icon: BookOpen },
   { id: "reports", label: "Reports", icon: FileText },
+  { id: "car", label: "Car Control", icon: Gamepad2 },
+  { id: "camera", label: "Camera Feed", icon: Camera },
 ];
 
 const PAGE_META = {
@@ -41,6 +43,8 @@ const PAGE_META = {
   library: { title: "Disease Library", sub: "Know your enemy — symptoms, conditions, and treatment for every tomato pathogen." },
   reports: { title: "Reports", sub: "Field operations data — detections, spray events, and trends over time." },
   home: { title: "About CropGuardian AI", sub: "The story, the technology, and the mission behind the platform." },
+  car: { title: "Car Control", sub: "Drive the CropGuardian rover manually over WiFi." },
+  camera: { title: "Camera Feed", sub: "Turn this phone into the rover's mounted camera." },
 };
 
 const HARDWARE = [
@@ -2175,6 +2179,318 @@ function ReportsView({ sprayLog }) {
 }
 
 /* ---------------------------------------------------------------------- */
+/*  Car Control view — manual 4WD drive                                    */
+/* ---------------------------------------------------------------------- */
+
+function CarControlView() {
+  const [status, setStatus] = useState("Idle");
+  const [speed, setSpeed] = useState(255);
+  const [error, setError] = useState(null);
+  const heldRef = useRef(false);
+
+  const sendCommand = async (command) => {
+    const res = await apiFetch("/car/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command }),
+    });
+    if (!res || !res.ok) {
+      setError("Car unreachable — check the board is powered and on the same network.");
+    } else {
+      setError(null);
+    }
+    return res;
+  };
+
+  const press = (command, label) => (e) => {
+    e.preventDefault();
+    heldRef.current = true;
+    setStatus(label);
+    sendCommand(command);
+  };
+
+  const release = (e) => {
+    if (!heldRef.current) return;
+    e?.preventDefault();
+    heldRef.current = false;
+    setStatus("Stopped");
+    sendCommand("S");
+  };
+
+  const bumpSpeed = (delta, command) => () => {
+    setSpeed((s) => clamp(s + delta, 60, 255));
+    sendCommand(command);
+  };
+
+  const DirButton = ({ command, label, icon: Icon, className = "" }) => (
+    <motion.button
+      onPointerDown={press(command, label)}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onPointerCancel={release}
+      whileTap={{ scale: 0.92 }}
+      className={`w-20 h-20 rounded-2xl bg-forest-600 hover:bg-forest-700 text-white flex items-center justify-center shadow-lg shadow-forest-700/30 transition-colors select-none touch-none ${className}`}
+    >
+      <Icon size={30} />
+    </motion.button>
+  );
+
+  return (
+    <div className="flex flex-col items-center gap-8 py-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge tone={status === "Stopped" || status === "Idle" ? "slate" : "sky"} icon={Gamepad2}>
+          {status}
+        </Badge>
+        <Badge tone="slate">Speed {speed}</Badge>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 bg-rose-50 ring-1 ring-rose-100 rounded-lg px-4 py-2.5 text-sm text-rose-700">
+          <AlertTriangle size={14} /> {error}
+        </div>
+      )}
+
+      <Card className="p-8">
+        <div className="grid grid-cols-3 grid-rows-3 gap-3 place-items-center">
+          <div />
+          <DirButton command="F" label="Forward" icon={ChevronUp} />
+          <div />
+
+          <DirButton command="L" label="Left" icon={ChevronLeft} />
+          <motion.button
+            onClick={() => sendCommand("S")}
+            whileTap={{ scale: 0.92 }}
+            className="w-20 h-20 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg shadow-rose-700/30 transition-colors"
+          >
+            <Square size={26} fill="currentColor" />
+          </motion.button>
+          <DirButton command="R" label="Right" icon={ChevronRight} />
+
+          <div />
+          <DirButton command="B" label="Backward" icon={ChevronDown} />
+          <div />
+        </div>
+        <p className="text-xs text-gray-400 text-center mt-4">Hold a direction to move — release to stop</p>
+      </Card>
+
+      <Card className="p-5 w-full max-w-xs">
+        <SectionTitle icon={Zap} title="Speed" tone="sky" />
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={bumpSpeed(-20, "-")}
+            className="w-12 h-12 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg flex items-center justify-center transition-colors"
+          >
+            −
+          </button>
+          <span className="font-mono text-2xl font-bold text-gray-800 w-16 text-center">{speed}</span>
+          <button
+            onClick={bumpSpeed(20, "+")}
+            className="w-12 h-12 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-lg flex items-center justify-center transition-colors"
+          >
+            +
+          </button>
+        </div>
+      </Card>
+
+      <LiveCameraPanel />
+    </div>
+  );
+}
+
+/** Shown on the driver's phone alongside the D-pad -- polls the last frame
+ * the camera phone pushed (see CameraFeedView) and can trigger a real CADRI
+ * analysis of whatever's currently in view. */
+function LiveCameraPanel() {
+  const [tick, setTick] = useState(0);
+  const [hasFrame, setHasFrame] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const analyze = async () => {
+    setAnalyzing(true);
+    setResult(null);
+    const res = await apiFetch("/camera/analyze", { method: "POST" });
+    setAnalyzing(false);
+    if (!res || !res.ok) {
+      setResult({ error: true, message: res?.data?.detail || "Could not analyze the current frame." });
+      return;
+    }
+    const data = res.data;
+    if (data.skipped) {
+      setResult({ skipped: true, reason: data.reason });
+      return;
+    }
+    const leaf = data.leaves?.[0];
+    if (!leaf) {
+      setResult({ detected: false });
+      return;
+    }
+    setResult({
+      detected: leaf.decision !== "no_spray" && leaf.decision !== "manual_inspection",
+      disease: leaf.disease,
+      confidence: Math.round(leaf.confidence * 100),
+      decision: leaf.decision,
+      reasoning: leaf.reasoning,
+    });
+  };
+
+  return (
+    <Card className="p-4 w-full max-w-md">
+      <SectionTitle icon={Camera} title="Live Camera" sub="Rover feed" tone="sky" />
+      <div className="relative rounded-2xl overflow-hidden bg-black aspect-video">
+        <img
+          src={`${API_BASE_URL}/camera/frame?t=${tick}`}
+          alt="Live feed"
+          className="w-full h-full object-cover"
+          onLoad={() => setHasFrame(true)}
+          onError={() => setHasFrame(false)}
+        />
+        {!hasFrame && (
+          <div className="absolute inset-0 flex items-center justify-center text-white/60 text-sm text-center px-6">
+            No camera feed yet — start streaming from the phone mounted on the rover
+          </div>
+        )}
+      </div>
+
+      <motion.button
+        onClick={analyze}
+        disabled={analyzing}
+        whileTap={{ scale: 0.96 }}
+        className="w-full mt-4 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-forest-600 to-forest-500 disabled:from-gray-300 disabled:to-gray-300 text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-md transition-colors"
+      >
+        {analyzing ? <RefreshCw size={15} className="animate-spin" /> : <ScanLine size={15} />}
+        {analyzing ? "Analyzing..." : "Analyze This Frame"}
+      </motion.button>
+
+      {result && (
+        <div className="mt-3">
+          {result.error ? (
+            <p className="text-sm text-rose-700 bg-rose-50 rounded-lg px-3 py-2">{result.message}</p>
+          ) : result.skipped ? (
+            <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+              Spray skipped — {result.reason === "cooldown_active" ? "cooldown active" : "pump already running"}
+            </p>
+          ) : !result.detected ? (
+            <p className="text-sm text-forest-700 bg-forest-50 rounded-lg px-3 py-2">No disease detected — leaf appears healthy.</p>
+          ) : (
+            <div className="text-sm text-rose-800 bg-rose-50 rounded-lg px-3 py-2 space-y-1">
+              <p className="font-medium">{result.disease} — {result.confidence}% confidence</p>
+              {result.reasoning && <p className="text-xs text-rose-700">{result.reasoning}</p>}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Run on the phone physically mounted on the rover -- captures its own
+ * camera and pushes a frame every ~1.5s for the driver's phone to see. */
+function CameraFeedView() {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const intervalRef = useRef(null);
+  const [active, setActive] = useState(false);
+  const [error, setError] = useState(null);
+  const [framesSent, setFramesSent] = useState(0);
+
+  const sendFrame = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) return;
+        const formData = new FormData();
+        formData.append("image", blob, "frame.jpg");
+        const res = await apiFetch("/camera/frame", { method: "POST", body: formData });
+        if (res && res.ok) setFramesSent((n) => n + 1);
+      },
+      "image/jpeg",
+      0.7
+    );
+  };
+
+  const stop = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setActive(false);
+  };
+
+  const start = async () => {
+    setError(null);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(
+        `The browser won't expose the camera on this page (insecure origin). Go to chrome://flags/#unsafely-treat-insecure-origin-as-secure, add exactly "${window.location.origin}", set it to Enabled, then tap Relaunch (a reload isn't enough — Chrome needs a full restart for this to take effect).`
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setActive(true);
+      intervalRef.current = setInterval(sendFrame, 1500);
+    } catch (e) {
+      setError(e?.message || "Could not access the camera — permission denied or no camera available.");
+    }
+  };
+
+  useEffect(() => () => stop(), []);
+
+  return (
+    <div className="flex flex-col items-center gap-6 py-4">
+      <Card className="p-4 w-full max-w-md">
+        <div className="relative rounded-2xl overflow-hidden bg-black aspect-video">
+          <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
+          {!active && (
+            <div className="absolute inset-0 flex items-center justify-center text-white/60 text-sm">Camera off</div>
+          )}
+        </div>
+        <canvas ref={canvasRef} className="hidden" />
+      </Card>
+
+      {error && (
+        <div className="flex items-start gap-2 bg-rose-50 ring-1 ring-rose-100 rounded-lg px-4 py-3 text-sm text-rose-700 max-w-md">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+
+      <motion.button
+        onClick={active ? stop : start}
+        whileTap={{ scale: 0.96 }}
+        className={`inline-flex items-center gap-2 text-white text-sm font-semibold px-6 py-3 rounded-full shadow-md transition-colors ${
+          active ? "bg-rose-600 hover:bg-rose-700" : "bg-forest-600 hover:bg-forest-700"
+        }`}
+      >
+        <Camera size={16} /> {active ? "Stop Streaming" : "Start Streaming"}
+      </motion.button>
+
+      {active && <p className="text-xs text-gray-400">{framesSent} frame{framesSent === 1 ? "" : "s"} sent</p>}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
 /*  AI Assistant — rule-based chat                                         */
 /* ---------------------------------------------------------------------- */
 
@@ -2780,6 +3096,8 @@ export default function CropGuardianAI() {
     history: () => <HistoryView sprayLog={sprayLog} />,
     library: () => <DiseaseLibraryView />,
     reports: () => <ReportsView sprayLog={sprayLog} />,
+    car: () => <CarControlView />,
+    camera: () => <CameraFeedView />,
   };
 
   const initials = user.name.split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();

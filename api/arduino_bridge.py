@@ -1,17 +1,27 @@
-"""Serial bridge to the Arduino sensor/actuator controller
-(Arduino/car_4wd_serial/car_4wd_serial.ino) plus the full detect -> classify
--> Grad-CAM -> CADRI analysis endpoint.
+"""Bridge to the combined car/sensor/actuator sketch
+(car_4wd_serial/car_4wd_serial.ino) plus the full detect -> classify ->
+Grad-CAM -> CADRI analysis endpoint.
 
-A background thread continuously reads the Arduino's newline-delimited JSON
+The sketch runs on the Uno Q's own microcontroller, which the board's
+Arduino Router service owns exclusively -- there's no raw /dev/ttyUSB0 to
+open directly. Instead the router exposes the sketch's plain Serial stream
+as a local TCP passthrough ("monitor proxy") on 127.0.0.1:7500 (see
+api/car_router.py for the same mechanism used for movement commands). This
+module holds the one persistent connection to that proxy for the whole
+backend -- car_router.py sends its movement commands through this same
+`bridge` rather than opening a second connection, since a background reader
+thread here is already consuming everything the proxy sends.
+
+A background thread continuously reads the sketch's newline-delimited JSON
 sensor lines and caches the latest reading in a lock-protected dict, so
-GET /sensors is always non-blocking and never depends on the serial port
+GET /sensors is always non-blocking and never depends on the connection
 being up at request time. Two locks are used deliberately: `_state_lock`
 guards the cached readings (read/written on every loop iteration and every
-request), while `_serial_lock` guards the `serial.Serial` handle itself so a
-command write from a request handler can't interleave with the reader
-thread's reconnect logic.
+request), while `_serial_lock` guards the socket itself so a command write
+from a request handler can't interleave with the reader thread's reconnect
+logic.
 
-Requires: pyserial, fastapi, pillow (already a project dependency via
+Requires: fastapi, pillow (already a project dependency via
 src/cropguardian/inference/predictor.py).
 """
 
@@ -19,29 +29,34 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
+import socket
 import threading
 import time
 from datetime import datetime
 from io import BytesIO
 from typing import Literal
 
-import serial
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
 from pydantic import BaseModel
-from serial.tools import list_ports
 
 from pipeline.cadri_engine import compute_decision
 from src.cropguardian.inference.pipeline import DiseasePipeline
 
 logger = logging.getLogger(__name__)
 
-BAUD_RATE = 9600
-FALLBACK_PORT = "COM3" if sys.platform.startswith("win") else "/dev/ttyUSB0"
+ROUTER_MONITOR_HOST = "127.0.0.1"
+ROUTER_MONITOR_PORT = 7500
 READ_TIMEOUT_SECONDS = 1.0
 RECONNECT_INTERVAL_SECONDS = 2.0
+# The sketch reports every 2s. A board-side power hiccup (relay coil load,
+# a swapped power source) can silently kill the monitor proxy's link to the
+# MCU without ever closing our TCP socket -- recv() just times out forever,
+# "connected" stays true, and the cache goes stale with no error logged. If
+# we haven't seen a single byte in this long, the connection is presumed
+# dead and gets torn down so the next loop iteration reconnects fresh.
+STALE_CONNECTION_SECONDS = 10.0
 
 Command = Literal["SPRAY_OFF", "SPRAY_LIGHT", "SPRAY_MODERATE", "SPRAY_FULL", "FAN_ON", "FAN_OFF"]
 
@@ -69,9 +84,9 @@ SENSOR_FIELDS = ("temperature", "humidity", "soil_moisture", "gas_level", "fan_s
 # re-triggering a spray every 2s (the Arduino's sensor-report cadence) while
 # an earlier spray is still physically running or just finished.
 SPRAY_COOLDOWN_SECONDS = {
-    "SPRAY_LIGHT": 15,
-    "SPRAY_MODERATE": 30,
-    "SPRAY_FULL": 60,
+    "SPRAY_LIGHT": 10,
+    "SPRAY_MODERATE": 12,
+    "SPRAY_FULL": 15,
     "no_spray": 0,
     "manual_inspection": 0,
 }
@@ -96,13 +111,15 @@ class SensorReading(BaseModel):
 
 
 class ArduinoBridge:
-    """Owns the serial connection, the background reader thread, and the
-    latest-sensor-reading cache."""
+    """Owns the monitor-proxy connection, the background reader thread, and
+    the latest-sensor-reading cache."""
 
-    def __init__(self, baud_rate: int = BAUD_RATE, fallback_port: str = FALLBACK_PORT):
-        self.baud_rate = baud_rate
-        self.fallback_port = fallback_port
-        self._conn: serial.Serial | None = None
+    def __init__(self, host: str = ROUTER_MONITOR_HOST, port: int = ROUTER_MONITOR_PORT):
+        self.host = host
+        self.port = port
+        self._sock: socket.socket | None = None
+        self._recv_buffer = b""
+        self._last_data_time = 0.0
         self._serial_lock = threading.Lock()
         self._state_lock = threading.Lock()
         self._state: dict = dict.fromkeys(SENSOR_FIELDS, None) | {
@@ -115,39 +132,28 @@ class ArduinoBridge:
 
     @property
     def connected(self) -> bool:
-        return self._conn is not None and self._conn.is_open
-
-    def _detect_port(self) -> str:
-        ports = list(list_ports.comports())
-        for port in ports:
-            haystack = f"{port.description} {port.manufacturer or ''} {port.hwid}".lower()
-            if "arduino" in haystack:
-                return port.device
-        # No description match (common with generic USB-serial chips like the
-        # CH340) -- fall back to device-name heuristics for the common
-        # platform-specific Arduino port name patterns.
-        for port in ports:
-            name = port.device.lower()
-            if "usbmodem" in name or "usbserial" in name or "ttyacm" in name or "ttyusb" in name:
-                return port.device
-        return self.fallback_port
+        return self._sock is not None
 
     def _connect(self) -> None:
-        port = self._detect_port()
         try:
-            self._conn = serial.Serial(port, self.baud_rate, timeout=READ_TIMEOUT_SECONDS)
-            logger.info("Connected to Arduino on %s", port)
-        except serial.SerialException as exc:
-            logger.warning("Could not open serial port %s: %s", port, exc)
-            self._conn = None
+            sock = socket.create_connection((self.host, self.port), timeout=READ_TIMEOUT_SECONDS)
+            sock.settimeout(READ_TIMEOUT_SECONDS)
+            self._sock = sock
+            self._recv_buffer = b""
+            self._last_data_time = time.time()
+            logger.info("Connected to Arduino router monitor proxy at %s:%s", self.host, self.port)
+        except OSError as exc:
+            logger.warning("Could not reach Arduino router monitor proxy: %s", exc)
+            self._sock = None
 
     def _disconnect(self) -> None:
-        if self._conn is not None:
+        if self._sock is not None:
             try:
-                self._conn.close()
-            except serial.SerialException:
+                self._sock.close()
+            except OSError:
                 pass
-            self._conn = None
+            self._sock = None
+        self._recv_buffer = b""
 
     def start(self) -> None:
         with self._serial_lock:
@@ -164,40 +170,58 @@ class ArduinoBridge:
             self._disconnect()
 
     def _read_loop(self) -> None:
+        # Raw recv() into a manual line buffer, rather than socket.makefile():
+        # a buffered file object wrapping a timeout-enabled socket does not
+        # recover cleanly from a read timeout (subsequent reads fail with
+        # "cannot read from timed out object"), but a plain socket handles
+        # repeated timeouts on recv() fine.
         while not self._stop_event.is_set():
             with self._serial_lock:
                 if not self.connected:
                     self._connect()
-                    conn = None
-                else:
-                    conn = self._conn
-            if conn is None:
+                sock = self._sock
+            if sock is None:
                 self._stop_event.wait(RECONNECT_INTERVAL_SECONDS)
                 continue
 
             try:
-                raw = conn.readline()
-            except (serial.SerialException, OSError) as exc:
-                logger.warning("Serial read failed, will reconnect: %s", exc)
+                chunk = sock.recv(4096)
+            except socket.timeout:
+                if time.time() - self._last_data_time > STALE_CONNECTION_SECONDS:
+                    logger.warning(
+                        "No data from monitor proxy in over %.0fs, presuming the link died silently -- reconnecting",
+                        STALE_CONNECTION_SECONDS,
+                    )
+                    with self._serial_lock:
+                        self._disconnect()
+                continue  # no data yet, connection is still fine
+            except OSError as exc:
+                logger.warning("Monitor proxy read failed, will reconnect: %s", exc)
                 with self._serial_lock:
                     self._disconnect()
                 continue
 
-            if not raw:
-                continue  # readline() timeout, no data yet
-            self._ingest_line(raw)
+            if not chunk:
+                # Empty read (not a timeout) means the peer closed the
+                # connection.
+                logger.warning("Monitor proxy connection closed, will reconnect")
+                with self._serial_lock:
+                    self._disconnect()
+                continue
 
-    def _ingest_line(self, raw: bytes) -> None:
-        line = raw.decode("utf-8", errors="ignore").strip()
+            self._last_data_time = time.time()
+            self._recv_buffer += chunk
+            while b"\n" in self._recv_buffer:
+                line, self._recv_buffer = self._recv_buffer.split(b"\n", 1)
+                self._ingest_line(line.decode("utf-8", errors="ignore"))
+
+    def _ingest_line(self, raw: str) -> None:
+        line = raw.strip()
         if not line:
             return
         try:
             payload = json.loads(line)
         except json.JSONDecodeError:
-            return
-        if "error" in payload:
-            # e.g. {"error": "DHT22_READ_FAILED"} -- keep the last known
-            # good readings rather than overwriting them with nulls.
             return
         with self._state_lock:
             for field in SENSOR_FIELDS:
@@ -256,8 +280,12 @@ class ArduinoBridge:
     def send_command(self, command: str) -> None:
         with self._serial_lock:
             if not self.connected:
-                raise ConnectionError("Arduino is not connected")
-            self._conn.write(f"{command}\n".encode("utf-8"))
+                raise ConnectionError("Arduino router monitor proxy is not connected")
+            try:
+                self._sock.sendall(f"{command}\n".encode("utf-8"))
+            except OSError as exc:
+                self._disconnect()
+                raise ConnectionError(f"Could not reach the Arduino router: {exc}") from exc
 
 
 bridge = ArduinoBridge()
@@ -288,14 +316,11 @@ def post_command(request: CommandRequest) -> dict:
     return {"status": "sent", "command": request.command}
 
 
-@router.post("/analyze")
-async def analyze(image: UploadFile = File(...)) -> dict:
-    contents = await image.read()
-    try:
-        pil_image = Image.open(BytesIO(contents)).convert("RGB")
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
-
+def analyze_image(pil_image: Image.Image) -> dict:
+    """The shared detect -> classify -> Grad-CAM -> CADRI pipeline, used by
+    both POST /analyze (a manually uploaded photo) and POST /camera/analyze
+    (the latest frame pushed by a live camera feed) -- same decision logic,
+    same spray side effects, just a different source for the image."""
     sensors = bridge.latest()
     sensors_available = bridge.has_sensor_data()
 
@@ -361,5 +386,19 @@ async def analyze(image: UploadFile = File(...)) -> dict:
             "sensors": sensors,
         }
     except Exception as exc:
-        logger.exception("Unhandled error in /analyze pipeline")
-        return JSONResponse(status_code=500, content={"error": True, "message": str(exc)})
+        logger.exception("Unhandled error in analyze pipeline")
+        return {"error": True, "message": str(exc)}
+
+
+@router.post("/analyze")
+async def analyze(image: UploadFile = File(...)) -> dict:
+    contents = await image.read()
+    try:
+        pil_image = Image.open(BytesIO(contents)).convert("RGB")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
+
+    result = analyze_image(pil_image)
+    if result.get("error"):
+        return JSONResponse(status_code=500, content=result)
+    return result
