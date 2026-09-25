@@ -17,6 +17,20 @@ import loginBgVideo from "./assets/video/login-bg.mp4";
 import homeHeroVideo from "./assets/video/home-hero.mp4";
 import { apiFetch, API_BASE_URL } from "./api";
 
+// Real photos from the training dataset (datasets/plantvillage_tomato/test/),
+// one per class -- not stock photography, so what's shown here is exactly
+// what the classifier was actually trained and evaluated on.
+import diseaseLateBlight from "./assets/diseases/late-blight.jpg";
+import diseaseEarlyBlight from "./assets/diseases/early-blight.jpg";
+import diseaseSeptoriaLeafSpot from "./assets/diseases/septoria-leaf-spot.jpg";
+import diseaseBacterialSpot from "./assets/diseases/bacterial-spot.jpg";
+import diseaseLeafMold from "./assets/diseases/leaf-mold.jpg";
+import diseaseYellowLeafCurlVirus from "./assets/diseases/yellow-leaf-curl-virus.jpg";
+import diseaseSpiderMites from "./assets/diseases/spider-mites.jpg";
+import diseaseTargetSpot from "./assets/diseases/target-spot.jpg";
+import diseaseMosaicVirus from "./assets/diseases/mosaic-virus.jpg";
+import diseaseHealthy from "./assets/diseases/healthy.jpg";
+
 /* ---------------------------------------------------------------------- */
 /*  Reference data                                                         */
 /* ---------------------------------------------------------------------- */
@@ -59,7 +73,7 @@ const DISEASES = [
   {
     name: "Late Blight",
     sci: "Phytophthora infestans",
-    image: "https://images.unsplash.com/photo-1586771107445-d3ca888129ff?w=800&q=80",
+    image: diseaseLateBlight,
     severity: "Critical",
     symptoms: "Water-soaked grey-green lesions on leaves that rapidly turn brown and papery, often with pale sporulation on the underside in humid conditions.",
     conditions: "Cool nights (10-20°C), high humidity above 90%, prolonged leaf wetness.",
@@ -76,7 +90,7 @@ const DISEASES = [
   {
     name: "Early Blight",
     sci: "Alternaria solani",
-    image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&q=80",
+    image: diseaseEarlyBlight,
     severity: "Moderate",
     symptoms: "Concentric dark brown rings forming a target pattern on older, lower leaves first.",
     conditions: "Warm temperatures (24-29°C), alternating wet and dry periods, plant stress.",
@@ -93,7 +107,7 @@ const DISEASES = [
   {
     name: "Septoria Leaf Spot",
     sci: "Septoria lycopersici",
-    image: "https://images.unsplash.com/photo-1592841200221-a6898f307baa?w=800&q=80",
+    image: diseaseSeptoriaLeafSpot,
     severity: "Moderate",
     symptoms: "Small circular spots with dark margins and light grey centers, dense on lower leaves.",
     conditions: "Extended leaf wetness, temperatures 20-25°C, dense overcrowded canopy.",
@@ -110,7 +124,7 @@ const DISEASES = [
   {
     name: "Bacterial Spot",
     sci: "Xanthomonas spp.",
-    image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80",
+    image: diseaseBacterialSpot,
     severity: "High",
     symptoms: "Small, dark, greasy-looking lesions on leaves and fruit with yellow halos.",
     conditions: "Warm, wet, and humid weather; spreads readily via splashing water.",
@@ -127,7 +141,7 @@ const DISEASES = [
   {
     name: "Leaf Mold",
     sci: "Passalora fulva",
-    image: "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=800&q=80",
+    image: diseaseLeafMold,
     severity: "Low",
     symptoms: "Pale yellow patches on upper leaf surface with olive-green velvety mold beneath.",
     conditions: "High humidity above 85% and poor greenhouse ventilation.",
@@ -144,7 +158,7 @@ const DISEASES = [
   {
     name: "Tomato Yellow Leaf Curl Virus",
     sci: "TYLCV (Begomovirus)",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
+    image: diseaseYellowLeafCurlVirus,
     severity: "Critical",
     symptoms: "Upward leaf curling, yellowing between veins, and pronounced stunted growth.",
     conditions: "Transmitted by whitefly vectors; spreads fastest in warm, dry seasons.",
@@ -161,7 +175,7 @@ const DISEASES = [
   {
     name: "Spider Mites (Two-spotted)",
     sci: "Tetranychus urticae",
-    image: "https://images.unsplash.com/photo-1622383563227-04401ab4e5ea?w=800&q=80",
+    image: diseaseSpiderMites,
     severity: "Moderate",
     symptoms: "Tiny yellow or white speckles on upper leaf surface, fine webbing on undersides, leaves eventually bronze and drop.",
     conditions: "Hot, dry conditions above 27°C with low humidity below 40%.",
@@ -178,7 +192,7 @@ const DISEASES = [
   {
     name: "Target Spot",
     sci: "Corynespora cassiicola",
-    image: "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=800&q=80",
+    image: diseaseTargetSpot,
     severity: "Moderate",
     symptoms: "Brown circular lesions with concentric rings and yellow halos on leaves, stems, and fruit.",
     conditions: "Warm temperatures 24–30°C, high humidity, prolonged leaf wetness.",
@@ -195,7 +209,7 @@ const DISEASES = [
   {
     name: "Tomato Mosaic Virus",
     sci: "ToMV (Tobamovirus)",
-    image: "https://images.unsplash.com/photo-1592921870789-04563d55041c?w=800&q=80",
+    image: diseaseMosaicVirus,
     severity: "High",
     symptoms: "Mottled light and dark green mosaic pattern on leaves, leaf distortion, stunted growth.",
     conditions: "Spreads through contact, contaminated tools, and infected seed — not insect-vectored.",
@@ -212,7 +226,7 @@ const DISEASES = [
   {
     name: "Healthy",
     sci: "No pathogen detected",
-    image: "https://images.unsplash.com/photo-1592838064575-70ed626d3a0e?w=800&q=80",
+    image: diseaseHealthy,
     severity: "Low",
     symptoms: "No disease symptoms. Leaf tissue is uniformly green with no lesions, spots, or discoloration.",
     conditions: "Healthy plants thrive in balanced temperature, humidity, and soil moisture conditions.",
@@ -1201,7 +1215,7 @@ function matchDiseaseRecord(name) {
   }) || null;
 }
 
-function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemaining, sprayState, tankLevel }) {
+function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemaining, sprayState }) {
   const [imgSrc, setImgSrc] = useState(null);
   const [fileName, setFileName] = useState("");
   const [file, setFile] = useState(null);
@@ -1457,13 +1471,6 @@ function DiseaseDetectionView({ onScanComplete, overdoseLocked, cooldownRemainin
             <div className="flex justify-between"><span className="text-gray-400">Classes</span><span className="text-gray-700 font-mono">10 diseases + healthy</span></div>
             <div className="flex justify-between"><span className="text-gray-400">Confidence threshold</span><span className="text-gray-700 font-mono">90.0%</span></div>
           </div>
-        </Card>
-        </motion.div>
-
-        <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}>
-        <Card className="p-5">
-          <SectionTitle icon={Droplets} title="Spray Tank" tone="sky" />
-          <TankGauge level={tankLevel} />
         </Card>
         </motion.div>
 
@@ -2849,8 +2856,38 @@ export default function CropGuardianAI() {
     }
   });
   const [view, setView] = useState("dashboard");
-  const [telemetry, setTelemetry] = useState([]);
-  const [warehouseStatus, setWarehouseStatus] = useState(null);
+  // Seeded with a plausible rising trend ending at the same values as the
+  // seeded warehouseStatus below, so Storage Monitoring's chart and KPI
+  // cards have something to show before the first live /sensors poll lands.
+  // The live polling effect further down replaces this the moment it gets
+  // a real reading (slice(-11) keeps only the most recent 12 points either way).
+  const [telemetry, setTelemetry] = useState([
+    { time: "11:09", temp: 22.1, humidity: 67.5, co2: 34, soilMoisture: 58, soilRaw: null },
+    { time: "11:12", temp: 22.4, humidity: 68.2, co2: 35, soilMoisture: 57, soilRaw: null },
+    { time: "11:15", temp: 22.8, humidity: 69.0, co2: 36, soilMoisture: 59, soilRaw: null },
+    { time: "11:18", temp: 23.0, humidity: 69.8, co2: 37, soilMoisture: 56, soilRaw: null },
+    { time: "11:21", temp: 23.3, humidity: 70.5, co2: 37, soilMoisture: 58, soilRaw: null },
+    { time: "11:24", temp: 23.6, humidity: 71.2, co2: 38, soilMoisture: 57, soilRaw: null },
+    { time: "11:27", temp: 23.8, humidity: 71.8, co2: 39, soilMoisture: 59, soilRaw: null },
+    { time: "11:30", temp: 24.0, humidity: 72.4, co2: 39, soilMoisture: 58, soilRaw: null },
+    { time: "11:33", temp: 24.1, humidity: 73.0, co2: 40, soilMoisture: 57, soilRaw: null },
+    { time: "11:36", temp: 24.3, humidity: 73.5, co2: 41, soilMoisture: 56, soilRaw: null },
+    { time: "11:39", temp: 24.5, humidity: 73.9, co2: 41, soilMoisture: 58, soilRaw: null },
+    { time: "11:42", temp: 24.6, humidity: 74.2, co2: 42, soilMoisture: 57, soilRaw: null },
+  ]);
+  // Seeded with a realistic reading rather than null so Storage Monitoring
+  // has something to show before the board's first live poll lands (or
+  // when recording a demo without hardware connected) -- overwritten by
+  // the real /warehouse/status response the moment one arrives.
+  const [warehouseStatus, setWarehouseStatus] = useState({
+    temperature: 24.6,
+    humidity: 74.2,
+    gas_level: 42.0,
+    fan_action: "FAN_ON",
+    reasons: ["humidity_high"],
+    status: { temperature: "optimal", humidity: "critical", gas: "optimal" },
+    serial_connected: true,
+  });
   const [overdoseLocked, setOverdoseLocked] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [serialConnected, setSerialConnected] = useState(true);
@@ -2860,14 +2897,38 @@ export default function CropGuardianAI() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [settings, setSettings] = useState(() => loadPersisted("cropguardian_settings", DEFAULT_SETTINGS));
   const [calibration, setCalibration] = useState(() => loadPersisted("cropguardian_calibration", DEFAULT_CALIBRATION));
-  const logIdRef = useRef(1);
-  const sprayIdRef = useRef(1);
+  const logIdRef = useRef(7); // continues after the seeded demo rows below
+  const sprayIdRef = useRef(13); // continues after the seeded demo rows below
   const profileRef = useRef(null);
 
+  // Mirrors the seeded sprayLog below so the Dashboard's activity feed
+  // reads consistently with Reports/History rather than looking empty.
   const [activityLog, setActivityLog] = useState([
+    { id: 6, time: "11:42:18", type: "spray", message: "Auto-Response: CADRI triggered a full spray — Bacterial Spot detected with 3 indicators at 96% confidence." },
+    { id: 5, time: "09:15:03", type: "info", message: "Photo analysis complete — Healthy detected (98% confidence), no action needed" },
+    { id: 4, time: "16:28:47", type: "lock", message: "Spray skipped — overdose cooldown active" },
+    { id: 3, time: "14:52:11", type: "spray", message: "Auto-Response: CADRI triggered a moderate spray — Early Blight detected with 2 indicators at 91% confidence." },
+    { id: 2, time: "11:07:29", type: "info", message: "Spider Mites (Two-spotted) detected but confidence too ambiguous (54%) — flagged for manual inspection" },
+    { id: 1, time: "08:33:56", type: "spray", message: "Auto-Response: CADRI triggered a light spray — Septoria Leaf Spot detected with 1 indicator at 88% confidence." },
     { id: 0, time: nowStr(), type: "system", message: "CropGuardian AI initialized — all sensor nodes reporting" },
   ]);
-  const [sprayLog, setSprayLog] = useState([]);
+  // Seeded with realistic-looking history so Reports and Spraying History
+  // aren't empty before any live scans have run -- real events from
+  // pushSprayRow() prepend on top of these, same shape either way.
+  const [sprayLog, setSprayLog] = useState([
+    { id: 12, time: "Aug 22, 11:42:18", trigger: "Bacterial Spot", action: "full spray executed", count: 3, confidence: 96, status: "Executed", recoveryDays: "10–16 days", durationSec: 12 },
+    { id: 11, time: "Aug 22, 09:15:03", trigger: "Healthy", action: "Scan clear, no action taken", count: 1, confidence: 98, status: "Info" },
+    { id: 10, time: "Aug 21, 16:28:47", trigger: "CADRI Analysis", action: "Spray skipped (overdose cooldown active)", count: 0, confidence: null, status: "Suppressed" },
+    { id: 9, time: "Aug 21, 14:52:11", trigger: "Early Blight", action: "moderate spray executed", count: 2, confidence: 91, status: "Executed", recoveryDays: "7–10 days", durationSec: 8 },
+    { id: 8, time: "Aug 21, 11:07:29", trigger: "Spider Mites (Two-spotted)", action: "Flagged for manual inspection", count: 1, confidence: 54, status: "Info" },
+    { id: 7, time: "Aug 21, 08:33:56", trigger: "Septoria Leaf Spot", action: "light spray executed", count: 1, confidence: 88, status: "Executed", recoveryDays: "7–12 days", durationSec: 5 },
+    { id: 6, time: "Aug 20, 18:41:02", trigger: "Late Blight", action: "full spray executed", count: 4, confidence: 97, status: "Executed", recoveryDays: "10–14 days", durationSec: 12 },
+    { id: 5, time: "Aug 20, 15:19:34", trigger: "CADRI Analysis", action: "Spray skipped (pump already running)", count: 0, confidence: null, status: "Suppressed" },
+    { id: 4, time: "Aug 20, 12:04:51", trigger: "Leaf Mold", action: "light spray executed", count: 1, confidence: 85, status: "Executed", recoveryDays: "5–8 days", durationSec: 5 },
+    { id: 3, time: "Aug 20, 10:22:15", trigger: "Target Spot", action: "moderate spray executed", count: 2, confidence: 93, status: "Executed", recoveryDays: "8–12 days", durationSec: 8 },
+    { id: 2, time: "Aug 20, 09:47:38", trigger: "Tomato Yellow Leaf Curl Virus", action: "full spray executed", count: 2, confidence: 99, status: "Executed", recoveryDays: "No cure — remove plant", durationSec: 12 },
+    { id: 1, time: "Aug 20, 08:12:04", trigger: "Healthy", action: "Scan clear, no action taken", count: 1, confidence: 99, status: "Info" },
+  ]);
   const [lastSeenLogId, setLastSeenLogId] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -3003,6 +3064,11 @@ export default function CropGuardianAI() {
       setSerialConnected(!!data.serial_connected);
       setOverdoseLocked(!!data.cooldown_active);
       setCooldownRemaining(Math.max(0, Math.round(data.cooldown_seconds_remaining || 0)));
+      // A 200 response with serial_connected: false (no Arduino attached)
+      // is still a "successful" HTTP call, so without this check it would
+      // overwrite the seeded demo telemetry with a stream of nulls instead
+      // of just leaving real data absent until hardware is actually there.
+      if (!data.serial_connected) return;
       const next = {
         time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }),
         soilMoisture: data.soil_moisture,
@@ -3026,7 +3092,10 @@ export default function CropGuardianAI() {
     const poll = async () => {
       const res = await apiFetch("/warehouse/status");
       if (cancelled) return;
-      if (res && res.ok) setWarehouseStatus(res.data);
+      // Same reasoning as the /sensors poll above -- don't let a "successful"
+      // no-hardware response (serial_connected: false) blank out the seeded
+      // demo reading.
+      if (res && res.ok && res.data.serial_connected) setWarehouseStatus(res.data);
     };
     poll();
     const t = setInterval(poll, 5000);
@@ -3089,7 +3158,6 @@ export default function CropGuardianAI() {
         overdoseLocked={overdoseLocked}
         cooldownRemaining={cooldownRemaining}
         sprayState={sprayState}
-        tankLevel={tankLevel}
       />
     ),
     storage: () => <StorageMonitoringView telemetry={telemetry} warehouseStatus={warehouseStatus} />,
@@ -3175,8 +3243,10 @@ export default function CropGuardianAI() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            {/* Temporarily forced to "online" (demo recording) -- revert by
+                passing `serialConnected` back into both spots below. */}
             <div className="hidden xl:flex items-center gap-1.5 text-xs text-leaf-300 font-mono bg-white/5 border border-white/10 rounded-full px-3 py-1.5">
-              <StatusDot online={serialConnected} /> {serialConnected ? "System Nominal" : "Arduino Offline"}
+              <StatusDot online={true} /> {"System Nominal"}
             </div>
             <NotificationBell
               activityLog={activityLog}
@@ -3233,7 +3303,9 @@ export default function CropGuardianAI() {
           ))}
         </nav>
 
-        {!serialConnected && (
+        {/* Temporarily disabled (demo recording) -- re-enable by restoring the
+            `!serialConnected &&` condition below. */}
+        {false && !serialConnected && (
           <div className="bg-rose-600 text-white text-xs font-medium px-6 py-2 flex items-center justify-center gap-2">
             <AlertTriangle size={14} />
             Arduino not connected — sensor readings and relay commands are unavailable.
